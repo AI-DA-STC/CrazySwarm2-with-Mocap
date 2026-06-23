@@ -2,7 +2,7 @@
 # Install system + ROS dependencies for the CrazySwarm2 stack.
 # Distro-aware: supports Ubuntu 22.04 + ROS 2 Humble and Ubuntu 24.04 + ROS 2 Jazzy.
 #
-# Safe to re-run. Assumes ROS 2 is already installed (see docs/SETUP.md if not).
+# Safe to re-run. Assumes ROS 2 is already installed (see README "Setup Step 1" if not).
 set -euo pipefail
 
 # --- resolve ROS distro -------------------------------------------------------
@@ -26,7 +26,7 @@ if [[ -z "${ROS_DISTRO}" ]]; then
   exit 1
 fi
 if [[ ! -d "/opt/ros/${ROS_DISTRO}" ]]; then
-  echo "ERROR: /opt/ros/${ROS_DISTRO} not found. Install ROS 2 ${ROS_DISTRO} first (docs/SETUP.md)." >&2
+  echo "ERROR: /opt/ros/${ROS_DISTRO} not found. Install ROS 2 ${ROS_DISTRO} first (README 'Setup Step 1')." >&2
   exit 1
 fi
 echo "==> Target: Ubuntu ${VERSION_ID}, ROS 2 ${ROS_DISTRO}"
