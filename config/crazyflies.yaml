@@ -57,6 +57,11 @@ all:
         frequency: 10 # Hz
       status:
         frequency: 1 # Hz
+    # Each custom topic below is streamed from the firmware and republished as a
+    # ROS topic /<cf>/<name> of type crazyflie_interfaces/LogDataGeneric.
+    # Uncomment a block to ENABLE it. `vars` are firmware log-variable names (see
+    # `ros2 run crazyflie listLogVariables` for the full list on your firmware).
+    # Keep frequencies low — every enabled block costs Crazyradio bandwidth.
     custom_topics:
       estimator:
         frequency: 5 # Hz  (lower than the firmware default of 50 to save bandwidth)
@@ -64,6 +69,23 @@ all:
           - stateEstimate.x
           - stateEstimate.y
           - stateEstimate.z
+      # attitude:                 # -> /cf1/attitude
+      #   frequency: 10
+      #   vars:
+      #     - stabilizer.roll
+      #     - stabilizer.pitch
+      #     - stabilizer.yaw
+      # kalman:                   # -> /cf1/kalman
+      #   frequency: 10
+      #   vars:
+      #     - kalman.stateX
+      #     - kalman.stateY
+      #     - kalman.stateZ
+      # battery:                  # -> /cf1/battery
+      #   frequency: 1
+      #   vars:
+      #     - pm.vbat
+      #     - pm.state
   firmware_params:
     commander:
       enHighLevel: 1

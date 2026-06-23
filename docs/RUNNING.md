@@ -123,6 +123,60 @@ ros2 topic echo /cf1/status --once
 ros2 topic echo /cf1/connection_statistics --once
 ```
 
+## E. Enabling extra telemetry logging (custom topics)
+
+The drones can stream onboard firmware variables back as ROS topics. This is
+configured under `all.firmware_logging.custom_topics` in
+`config/crazyflies.yaml`. Several example blocks are shipped **commented out** —
+enable them by uncommenting.
+
+```yaml
+all:
+  firmware_logging:
+    enabled: true
+    custom_topics:
+      estimator:          # enabled by default -> /cf1/estimator
+        frequency: 5
+        vars: [stateEstimate.x, stateEstimate.y, stateEstimate.z]
+      # attitude:         # uncomment to enable -> /cf1/attitude
+      #   frequency: 10
+      #   vars: [stabilizer.roll, stabilizer.pitch, stabilizer.yaw]
+      # battery:          # uncomment to enable -> /cf1/battery
+      #   frequency: 1
+      #   vars: [pm.vbat, pm.state]
+```
+
+**To enable a log topic:**
+
+1. Uncomment the block (remove the leading `# `), or add your own. Each top-level
+   key (`attitude`, `battery`, …) becomes the ROS topic name `/<cf>/<name>`.
+2. Set `frequency` (Hz) — **keep it low**; every block shares the Crazyradio
+   bandwidth (see [MOCAP §3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth)).
+3. List the firmware `vars` you want. Discover valid names with:
+   ```bash
+   ros2 run crazyflie listLogVariables --uri radio://0/80/2M/E7E7E7E701
+   ```
+4. Re-apply the overlay and rebuild config, then relaunch:
+   ```bash
+   cp config/*.yaml src/crazyswarm2/crazyflie/config/   # or ./scripts/setup.sh
+   ros2 launch crazyflie launch.py
+   ```
+
+**To view a topic** (type is `crazyflie_interfaces/LogDataGeneric`):
+
+```bash
+ros2 topic list | grep cf1          # see which log topics exist
+ros2 topic echo /cf1/attitude       # live values
+ros2 topic hz /cf1/attitude         # confirm it streams at the set rate
+```
+
+The `values` array in `LogDataGeneric` is ordered exactly as the `vars` list.
+The `default_topics` (`pose`, `status`) are enabled the same way — they're just
+predefined names the server understands.
+
+> Tip: enable high-rate blocks (e.g. 50 Hz attitude/kalman) only while actively
+> debugging, then comment them out again for normal flight to free up the radio.
+
 ## Launch arguments (crazyflie launch.py)
 
 | Arg | Values | Meaning |
