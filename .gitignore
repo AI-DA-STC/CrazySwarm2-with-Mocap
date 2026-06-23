@@ -1,0 +1,22 @@
+# ---- colcon / ROS 2 build artifacts ----
+/build/
+/install/
+/log/
+
+# ---- vcs-managed sources (cloned by scripts/setup.sh from crazyswarm2.repos) ----
+/src/
+
+# ---- crash dumps ----
+core.*
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# ---- editors / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
