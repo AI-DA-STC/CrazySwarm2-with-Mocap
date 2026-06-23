@@ -34,15 +34,25 @@ echo "==> Target: Ubuntu ${VERSION_ID}, ROS 2 ${ROS_DISTRO}"
 # --- apt build + runtime deps -------------------------------------------------
 echo "==> Installing apt packages"
 sudo apt-get update
+# Core build tooling + libraries.
+#   wget/tar : required by natnet_ros2's install_sdk.sh to fetch the NatNet SDK at build time
+#   ament-cmake-auto / tf2-ros / sensor-msgs : find_package'd by natnet_ros2 but
+#       NOT declared in its package.xml, so rosdep can miss them on a ros-base system
 sudo apt-get install -y \
-  git cmake build-essential \
+  git cmake build-essential wget tar unzip \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   libusb-1.0-0-dev libboost-program-options-dev libeigen3-dev \
   ros-"${ROS_DISTRO}"-tf-transformations \
+  ros-"${ROS_DISTRO}"-ament-cmake-auto \
+  ros-"${ROS_DISTRO}"-tf2-ros \
+  ros-"${ROS_DISTRO}"-sensor-msgs \
   ros-"${ROS_DISTRO}"-motion-capture-tracking || {
     echo "WARN: ros-${ROS_DISTRO}-motion-capture-tracking not found via apt."
     echo "      Uncomment the motion_capture_tracking entry in crazyswarm2.repos and re-run setup.sh."
   }
+
+# Optional: PyQt5 for natnet_ros2's GUI helper (helper_node_r2.py). Not needed for flight.
+sudo apt-get install -y python3-pyqt5 || true
 
 # cflib is needed only for the Python (cflib) backend; harmless otherwise.
 pip3 install --user cflib cfclient 2>/dev/null || pip3 install --user --break-system-packages cflib cfclient || true
