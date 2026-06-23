@@ -69,9 +69,13 @@ log topics so the 2 Mbit/s radio is not maxed out.
 1. **View → Settings → Streaming** (or the *Data Streaming* pane).
 2. Make sure **Broadcast Frame Data** is enabled and the NatNet streaming engine
    is on (turn off VRPN/Trackd if unused).
-3. Set the **point cloud / camera rate** to **50 Hz** (Motive *Settings →
+3. Set the **data signal / transmission type** to **Multicast** (not Unicast).
+   This must match `type: optitrack_closed_source` in
+   `config/motion_capture.yaml`, which expects the multicast stream.
+4. Set the **point cloud / camera rate** to **50 Hz** (Motive *Settings →
    Cameras → Rate*, or the system rate). The streaming rate follows the camera
-   frame rate.
+   frame rate, and must match `poses.qos.deadline: 50.0` in
+   `config/motion_capture.yaml`.
 
 ### 3b. Match the ROS side to 50 Hz
 

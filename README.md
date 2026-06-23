@@ -13,17 +13,17 @@ documentation, and pulls the upstream packages at install time via a
 
 ```
 Motive / OptiTrack server (Windows)
-        │  NatNet (UDP multicast 239.255.42.99, ports 1510/1511)
+        │  NatNet — Multicast @ 50 Hz
         ▼
-  natnet_ros2_node ──►  /<body>/pose  (PoseStamped, one per rigid body)
-        │
-        ▼
-  pose_bridge.py    ──►  /poses  (NamedPoseArray @ 50 Hz)
+  motion_capture_tracking  ──►  /poses  (NamedPoseArray)   [started by launch.py]
         │
         ▼
   crazyflie_server  ──►  Crazyradio USB ──►  Crazyflie 2.1 (cf1, cf2, …)
         ▲
         └── user scripts via the crazyflie_py API
+
+  Alternative mocap path (open driver):
+    Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /poses
 ```
 
 | Component | Source | Role |
@@ -71,21 +71,23 @@ Re-run individual steps anytime:
 LOW_MEM=1 ./scripts/build.sh     # serial build on low-RAM machines
 ```
 
-## Running the real swarm
+## Running the real drone
+
+First, in **Motive** set Data Streaming to **Multicast** at **50 Hz** — this must
+match `config/motion_capture.yaml`. Then:
 
 ```bash
-# terminal 1 — OptiTrack driver
-ros2 launch natnet_ros2 natnet_ros2.launch.py
+# terminal 1 — Crazyflie server (also starts mocap tracking, RViz, Foxglove)
+ros2 launch crazyflie launch.py
 
-# terminal 2 — mocap → /poses bridge
-python3 ~/CrazySwarm2/pose_bridge.py
-
-# terminal 3 — swarm server (C++ backend)
-ros2 launch crazyflie launch.py backend:=cpp
-
-# terminal 4 — a flight script
-ros2 launch crazyflie_examples launch.py script:=hello_world
+# terminal 2 — takeoff, hover, land
+ros2 run crazyflie_examples hello_world
 ```
+
+In RViz you should see `cf1` (onboard EKF estimate) and `cf1_mocap` (mocap)
+overlapping; Foxglove is viewable via the Foxglove Studio app. Hover/landing
+height and durations are set in `hello_world.py` — see
+[docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
 
 Full details and the mocap calibration / rigid-body / frequency tuning guide:
 
