@@ -18,13 +18,14 @@ The fastest way to verify the install. Uses the built-in `np` backend.
 > `./scripts/setup_sim_firmware.sh` once (see README → Setup Step 4).
 
 ```bash
-ros2 launch crazyflie launch.py backend:=sim
+ros2 launch crazyflie launch.py backend:=sim rviz:=True   # rviz is OFF by default
 # in another terminal, run an example against the sim:
 ros2 launch crazyflie_examples launch.py script:=hello_world
 ```
 
-RViz opens showing the simulated drone. Backend/controller/visualization options
-are in `config/server.yaml` (`sim:` section).
+RViz only opens if you pass `rviz:=True` (the launch default is `False`). With it,
+RViz shows the simulated drone. Backend/controller/visualization options are in
+`config/server.yaml` (`sim:` section).
 
 ## B. Hardware flight with OptiTrack
 
@@ -48,8 +49,9 @@ driver or bridge for this path.
 ### Fly
 
 ```bash
-# terminal 1 — start the Crazyflie server (also starts mocap tracking, RViz, Foxglove)
-ros2 launch crazyflie launch.py
+# terminal 1 — start the Crazyflie server (also starts mocap tracking + Foxglove bridge)
+# add rviz:=True for the RViz window (off by default)
+ros2 launch crazyflie launch.py rviz:=True
 
 # terminal 2 — takeoff, hover, land
 ros2 run crazyflie_examples hello_world
@@ -79,14 +81,17 @@ for first flights.
 
 ### Visualization
 
-`launch.py` also brings up RViz and the Foxglove bridge:
+Two viewers, both optional:
 
-- **RViz** shows two frames per drone — `cf1` (the **onboard EKF** state estimate)
-  and `cf1_mocap` (the raw **mocap** pose). They should sit almost on top of each
-  other; a large or growing gap means the estimator and mocap disagree (bad
-  calibration, marker/rigid-body issue, or estimator not converged).
-- **Foxglove**: open the Foxglove Studio app and connect to the running bridge
-  (default `ws://localhost:8765`) to inspect topics, poses, and TF live.
+- **RViz** — off by default; add `rviz:=True` to the launch. It shows two frames
+  per drone: `cf1` (the **onboard EKF** state estimate) and `cf1_mocap` (the raw
+  **mocap** pose). They should sit almost on top of each other; a large or growing
+  gap means the estimator and mocap disagree (bad calibration, marker/rigid-body
+  issue, or estimator not converged).
+- **Foxglove** — on by default (`foxglove:=True`), but needs the bridge package
+  installed (`sudo apt install ros-$ROS_DISTRO-foxglove-bridge`). It's not a
+  window: open the Foxglove Studio app and connect to `ws://localhost:8765` to
+  inspect topics, poses, and TF live.
 
 ### Verifying the pose pipeline
 
@@ -186,8 +191,9 @@ predefined names the server understands.
 | Arg | Values | Meaning |
 |-----|--------|---------|
 | `backend` | `cpp` \| `cflib` \| `sim` | Hardware (C++/Python) or simulation |
-| `mocap` | `True` \| `False` | Start the motion_capture_tracking node |
-| `teleop` | `True` \| `False` | Start joystick teleop + joy node |
-| `rviz` | `True` \| `False` | Start RViz |
-| `gui` | `True` \| `False` | Start the swarm GUI |
-| `debug` | `True` \| `False` | Launch the C++ server under gdb |
+| `mocap` | `True` \| `False` | Start the motion_capture_tracking node (default `True`) |
+| `teleop` | `True` \| `False` | Start joystick teleop + joy node (default `True`) |
+| `rviz` | `True` \| `False` | Start RViz (default **`False`**) |
+| `gui` | `True` \| `False` | Start the swarm GUI (default **`False`**) |
+| `foxglove` | `True` \| `False` | Start the foxglove bridge (default `True`; needs `ros-$ROS_DISTRO-foxglove-bridge`) |
+| `debug` | `True` \| `False` | Launch the C++ server under gdb (default `False`) |
