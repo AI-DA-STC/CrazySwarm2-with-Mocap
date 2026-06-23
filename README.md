@@ -145,8 +145,10 @@ bindings into your user site-packages):
 ```bash
 ./scripts/setup_sim_firmware.sh
 # verify
-python3 -c "import cffirmware && print('cffirmware OK')"
+python3 -c "import cffirmware; print('cffirmware OK')"
 ```
+
+(The script installs `git-lfs` too — the firmware's CMSIS submodule needs it.)
 
 ### Step 5 — Activate and smoke-test
 
