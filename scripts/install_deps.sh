@@ -43,13 +43,18 @@ sudo apt-get install -y \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   libusb-1.0-0-dev libboost-program-options-dev libeigen3-dev \
   ros-"${ROS_DISTRO}"-tf-transformations \
-  ros-"${ROS_DISTRO}"-ament-cmake-auto \
-  ros-"${ROS_DISTRO}"-tf2-ros \
-  ros-"${ROS_DISTRO}"-sensor-msgs \
   ros-"${ROS_DISTRO}"-motion-capture-tracking || {
-    echo "WARN: ros-${ROS_DISTRO}-motion-capture-tracking not found via apt."
+    echo "WARN: ros-${ROS_DISTRO}-motion-capture-tracking not available via apt."
     echo "      Uncomment the motion_capture_tracking entry in crazyswarm2.repos and re-run setup.sh."
   }
+
+# natnet_ros2's undeclared find_package deps. These ship with ros-<distro>-desktop,
+# so use --no-upgrade: install if missing, but never try to UPGRADE an already-
+# installed one (the ROS apt pool churns debs, so upgrades can 404 and abort apt).
+sudo apt-get install -y --no-upgrade \
+  ros-"${ROS_DISTRO}"-ament-cmake-auto \
+  ros-"${ROS_DISTRO}"-tf2-ros \
+  ros-"${ROS_DISTRO}"-sensor-msgs || true
 
 # Optional: PyQt5 for natnet_ros2's GUI helper (helper_node_r2.py). Not needed for flight.
 sudo apt-get install -y python3-pyqt5 || true

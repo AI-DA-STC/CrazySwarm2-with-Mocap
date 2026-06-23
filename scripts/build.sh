@@ -20,8 +20,12 @@ if [[ -z "${ROS_DISTRO}" || ! -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
   echo "ERROR: Cannot find a supported ROS 2 install. Source /opt/ros/<distro>/setup.bash first." >&2
   exit 1
 fi
+# ROS 2's setup.bash references unbound vars (e.g. AMENT_TRACE_SETUP_FILES);
+# disable nounset across the source so `set -u` doesn't abort the build.
 # shellcheck disable=SC1090
+set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
+set -u
 echo "==> Building against ROS 2 ${ROS_DISTRO}"
 
 COLCON_ARGS=(--symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release)
