@@ -7,16 +7,25 @@ Jazzy**. If ROS 2 is already installed, skip to [step 2](#2-clone-and-run-setup)
 
 ## 1. Install ROS 2
 
-Pick the row matching your Ubuntu version.
+This repo supports two Ubuntu/ROS 2 pairings (for reference):
 
 | Ubuntu | ROS 2 distro |
 |--------|--------------|
-| 22.04 (Jammy) | **Humble** |
-| 24.04 (Noble) | **Jazzy** |
+| 22.04 (Jammy) | Humble |
+| 24.04 (Noble) | Jazzy |
+
+You don't need to choose manually — the snippet below detects your Ubuntu version
+and sets `ROS_DISTRO` for you. Just copy-paste the whole block.
 
 ```bash
-# Set this to humble (22.04) or jazzy (24.04)
-export ROS_DISTRO=humble    # or: jazzy
+# --- auto-detect the ROS 2 distro from your Ubuntu version ---
+source /etc/os-release
+case "$VERSION_ID" in
+  22.04) export ROS_DISTRO=humble ;;
+  24.04) export ROS_DISTRO=jazzy  ;;
+  *) echo "Unsupported Ubuntu $VERSION_ID — need 22.04 or 24.04"; return 2>/dev/null || exit 2 ;;
+esac
+echo "Detected Ubuntu $VERSION_ID -> installing ROS 2 $ROS_DISTRO"
 
 # --- enable the ROS 2 apt repository ---
 sudo apt update && sudo apt install -y software-properties-common curl
