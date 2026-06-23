@@ -9,6 +9,7 @@
 | `vcs: command not found` | `sudo apt install python3-vcstool` (also installed by `install_deps.sh`). |
 | `colcon build` fails on `crazyflie_interfaces` | Source ROS 2 first; ensure `ros-dev-tools` / `rosidl` packages are installed (`scripts/install_deps.sh`). |
 | Missing submodule headers (`crazyflie_tools`, link-cpp) | `cd src/crazyswarm2 && git submodule update --init --recursive`, then rebuild. |
+| `natnet_ros2` build fails at "NatNet SDK not found" / `install_sdk.sh` | The SDK is downloaded at build time via `wget` from cloudfront — needs `wget` (installed by `install_deps.sh`) and internet access. Behind a proxy/offline, download `NatNet_SDK_4.4_ubuntu*.tar` manually and extract into `src/natnet_ros2/deps/NatNetSDK/`. |
 | Out-of-memory during build (SBC) | `LOW_MEM=1 ./scripts/build.sh`. |
 | Package not found after build | Re-source: `source install/setup.bash`. After editing `.msg`/`.srv` rebuild `crazyflie_interfaces` **and** dependents. |
 
