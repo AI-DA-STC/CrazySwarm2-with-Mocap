@@ -15,6 +15,7 @@
 | `install/` missing / `setup.sh` "built" but no workspace | The build aborted before `colcon`. Fixed in current scripts (ROS `setup.bash` + `set -u`); `git pull` and re-run, or build by hand (README → Setup Step 5 "Building by hand"). |
 | `ModuleNotFoundError: No module named 'cffirmware'` (on `backend:=sim`) | The simulator needs the firmware bindings. Run `./scripts/setup_sim_firmware.sh` once (README → Setup Step 4). Not needed for hardware backends. |
 | `make bindings_python` fails: `git-lfs: not found` / `arm_add_f32.c: No such file or directory` | The CMSIS submodule uses Git LFS. `sudo apt install -y git-lfs && git lfs install`, then in `~/crazyflie-firmware`: `git submodule update --init --recursive --force`, then re-run `make bindings_python`. (`setup_sim_firmware.sh` now installs git-lfs.) |
+| `No module named '_cffirmware'` (sim, even though `import cffirmware` worked in `build/`) | The `setup.py` egg didn't bundle the compiled `.so`. Put the build dir on PYTHONPATH instead: `echo 'export PYTHONPATH=$HOME/crazyflie-firmware/build:$PYTHONPATH' >> ~/.bashrc && source ~/.bashrc`. Verify from your home dir, not `build/`. |
 
 > **Mismatched ROS distro.** If you built under one distro but source another at
 > runtime, you get typesupport / ABI errors. Keep `$ROS_DISTRO` consistent between

@@ -144,11 +144,13 @@ bindings into your user site-packages):
 
 ```bash
 ./scripts/setup_sim_firmware.sh
-# verify
-python3 -c "import cffirmware; print('cffirmware OK')"
+source ~/.bashrc                       # the script adds the bindings to PYTHONPATH
+cd ~ && python3 -c "import cffirmware; print('cffirmware OK')"   # verify (not from build/)
 ```
 
-(The script installs `git-lfs` too — the firmware's CMSIS submodule needs it.)
+The script installs `git-lfs` (the firmware's CMSIS submodule needs it) and adds
+the compiled bindings to `PYTHONPATH` via `~/.bashrc`, so open a new shell (or
+`source ~/.bashrc`) before launching the simulator.
 
 ### Step 5 — Activate and smoke-test
 
