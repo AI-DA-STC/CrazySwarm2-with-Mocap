@@ -5,8 +5,8 @@
 # `cffirmware` for software-in-the-loop control. It is NOT a pip package and is
 # NOT needed for hardware flight (backend:=cpp / cflib) — only for the simulator.
 #
-# Installs cffirmware into your user site-packages, so no PYTHONPATH is required.
-# Idempotent. Clones crazyflie-firmware OUTSIDE the ROS workspace.
+# Builds the bindings and exposes them by adding the build dir to PYTHONPATH via
+# ~/.bashrc. Idempotent. Clones crazyflie-firmware OUTSIDE the ROS workspace.
 set -euo pipefail
 
 FW_DIR="${CF_FIRMWARE_DIR:-$HOME/crazyflie-firmware}"
