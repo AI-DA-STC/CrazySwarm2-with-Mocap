@@ -1,0 +1,28 @@
+# vcs manifest for the CrazySwarm2 indoor-flight stack.
+#
+# Imported into ./src by scripts/setup.sh via:  vcs import src < crazyswarm2.repos
+# motion_capture_tracking is NOT listed here: it is resolved from apt by rosdep
+# (ros-${ROS_DISTRO}-motion-capture-tracking). If rosdep cannot find it on your
+# distro, uncomment the source entry at the bottom.
+#
+# Refs are pinned to commits known to build on Ubuntu 22.04/Humble and 24.04/Jazzy.
+# To track upstream instead, change "version" to the branch name (main).
+repositories:
+  crazyswarm2:
+    type: git
+    url: https://github.com/IMRCLab/crazyswarm2.git
+    version: ae23edc45eab399ba0f9a902383bac6c5af9e435   # main, 2025-06
+    # NOTE: crazyswarm2 has git submodules (crazyflie_tools). setup.sh runs
+    # `git submodule update --init --recursive` after import.
+
+  natnet_ros2:
+    type: git
+    url: https://github.com/L2S-lab/natnet_ros2.git
+    version: 883b09518196c2f7cdd6aecd552d3c85c78f37e7   # main
+
+  # --- Fallback only: build motion_capture_tracking from source if apt has no
+  # --- ros-${ROS_DISTRO}-motion-capture-tracking. Then re-run setup.sh.
+  # motion_capture_tracking:
+  #   type: git
+  #   url: https://github.com/IMRCLab/motion_capture_tracking.git
+  #   version: ros2
