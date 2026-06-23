@@ -24,7 +24,7 @@ if [[ -z "${ROS_DISTRO}" ]]; then
 fi
 if [[ ! -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
   echo "ERROR: ROS 2 ${ROS_DISTRO} not installed at /opt/ros/${ROS_DISTRO}." >&2
-  echo "       See docs/SETUP.md for the ROS 2 install steps, then re-run." >&2
+  echo "       See README 'Setup Step 1' for the ROS 2 install steps, then re-run." >&2
   exit 1
 fi
 echo "=================================================================="

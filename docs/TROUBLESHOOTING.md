@@ -21,7 +21,7 @@
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| Drone never connects | Check `uri` in `config/crazyflies.yaml`; USB permissions ([SETUP §3](SETUP.md#3-crazyradio-usb-permissions-hardware-only)); each drone needs a unique address. |
+| Drone never connects | Check `uri` in `config/crazyflies.yaml`; USB permissions ([README → Setup Step 3](../README.md#step-3--crazyradio-usb-permissions-manual-hardware-only)); each drone needs a unique address. |
 | Latency / receive-rate warnings; choppy hold | Radio saturated — lower `firmware_logging` rates and mocap rate ([MOCAP §3](MOCAP.md#3-frequency--bandwidth-tuning-240--50-hz)); use one dongle per 1–2 drones. |
 | Won't arm | Check `/cf1/status` supervisor bits (tumbled / locked / can't-fly). Place level, retry. |
 | Drifts then emergency-lands | Estimator diverging — usually no `/poses` reaching the server (see mocap below). |
