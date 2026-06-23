@@ -134,18 +134,40 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 Reference: [Bitcraze USB permissions guide](https://www.bitcraze.io/documentation/repository/crazyflie-lib-python/master/installation/usb_permissions/).
 
-### Step 4 — Activate and smoke-test
+### Step 4 — Simulator firmware bindings (`cffirmware`)  *(simulator only)*
+
+The simulator backend (`backend:=sim`) imports the Crazyflie firmware Python
+bindings (`cffirmware`) for software-in-the-loop control. These are **not** a pip
+package and are **not** needed for hardware flight — only for the simulator. Build
+them once (clones crazyflie-firmware outside the workspace, builds + installs the
+bindings into your user site-packages):
+
+```bash
+./scripts/setup_sim_firmware.sh
+# verify
+python3 -c "import cffirmware && print('cffirmware OK')"
+```
+
+### Step 5 — Activate and smoke-test
 
 ```bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/CrazySwarm2/install/setup.bash
-ros2 launch crazyflie launch.py backend:=sim   # simulation, no hardware/mocap
+ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 ```
 
+> **Building by hand.** `setup.sh` already builds the workspace, but to (re)build
+> manually — e.g. after editing source, or to see raw colcon output:
+> ```bash
+> cd ~/CrazySwarm2
+> source /opt/ros/$ROS_DISTRO/setup.bash
+> colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+> source install/setup.bash
+> ```
+>
 > **Notes.** If `rosdep` can't find `motion-capture-tracking` on your distro,
 > uncomment its entry in [`crazyswarm2.repos`](crazyswarm2.repos) and re-run
-> `setup.sh` to build it from source. On low-RAM machines use
-> `LOW_MEM=1 ./scripts/build.sh`.
+> `setup.sh`. On low-RAM machines use `LOW_MEM=1 ./scripts/build.sh`.
 
 ## Running the real drone
 

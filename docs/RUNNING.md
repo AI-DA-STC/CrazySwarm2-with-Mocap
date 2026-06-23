@@ -13,6 +13,10 @@ source ~/CrazySwarm2/install/setup.bash
 
 The fastest way to verify the install. Uses the built-in `np` backend.
 
+> **One-time prerequisite:** the sim imports the `cffirmware` bindings. If you see
+> `ModuleNotFoundError: No module named 'cffirmware'`, run
+> `./scripts/setup_sim_firmware.sh` once (see README → Setup Step 4).
+
 ```bash
 ros2 launch crazyflie launch.py backend:=sim
 # in another terminal, run an example against the sim:
