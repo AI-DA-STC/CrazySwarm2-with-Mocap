@@ -56,6 +56,10 @@ sudo apt-get install -y --no-upgrade \
   ros-"${ROS_DISTRO}"-tf2-ros \
   ros-"${ROS_DISTRO}"-sensor-msgs || true
 
+# Foxglove bridge: launch.py enables foxglove by default, so install the bridge
+# (otherwise every launch logs an error trying to start it). View via Foxglove Studio.
+sudo apt-get install -y ros-"${ROS_DISTRO}"-foxglove-bridge || true
+
 # Optional: PyQt5 for natnet_ros2's GUI helper (helper_node_r2.py). Not needed for flight.
 sudo apt-get install -y python3-pyqt5 || true
 

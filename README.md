@@ -179,16 +179,19 @@ First, in **Motive** set Data Streaming to **Multicast** at **50 Hz** — this m
 match `config/motion_capture.yaml`. Then:
 
 ```bash
-# terminal 1 — Crazyflie server (also starts mocap tracking, RViz, Foxglove)
-ros2 launch crazyflie launch.py
+# terminal 1 — Crazyflie server (also starts mocap tracking + Foxglove bridge)
+# RViz is OFF by default — add rviz:=True for the window
+ros2 launch crazyflie launch.py rviz:=True
 
 # terminal 2 — takeoff, hover, land
 ros2 run crazyflie_examples hello_world
 ```
 
-In RViz you should see `cf1` (onboard EKF estimate) and `cf1_mocap` (mocap)
-overlapping; Foxglove is viewable via the Foxglove Studio app. Hover/landing
-height and durations are set in `hello_world.py` — see
+With `rviz:=True` you should see `cf1` (onboard EKF estimate) and `cf1_mocap`
+(mocap) overlapping. Foxglove is on by default but needs the bridge package
+(`sudo apt install ros-$ROS_DISTRO-foxglove-bridge`) and is viewed from the
+Foxglove Studio app. Hover/landing height and durations are set in
+`hello_world.py` — see
 [docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
 
 ## Documentation
