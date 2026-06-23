@@ -36,17 +36,21 @@ cd "${FW_DIR}"
 make cf2_defconfig
 make bindings_python
 
-echo "==> [4/4] Install cffirmware into user site-packages"
-cd build
-python3 setup.py install --user \
-  || pip3 install --user . \
-  || pip3 install --user --break-system-packages .
+echo "==> [4/4] Expose cffirmware on PYTHONPATH"
+# `make bindings_python` put cffirmware.py AND the compiled _cffirmware*.so in
+# build/. `setup.py install` does NOT reliably bundle the .so (the egg ends up
+# missing _cffirmware -> the sim dies with "No module named _cffirmware"), so we
+# add the build dir to PYTHONPATH instead — the method crazyswarm2 documents.
+BUILD_DIR="${FW_DIR}/build"
+LINE="export PYTHONPATH=\"${BUILD_DIR}:\${PYTHONPATH:-}\""
+grep -qF "${BUILD_DIR}" "${HOME}/.bashrc" 2>/dev/null || echo "${LINE}" >> "${HOME}/.bashrc"
+export PYTHONPATH="${BUILD_DIR}:${PYTHONPATH:-}"
 
 echo
-if python3 -c "import cffirmware" 2>/dev/null; then
-  echo "==> cffirmware OK. The simulator (backend:=sim) can now run."
+# Verify from a NEUTRAL directory (not build/, which would shadow the real path).
+if (cd "${HOME}" && python3 -c "import cffirmware" 2>/dev/null); then
+  echo "==> cffirmware OK. Run 'source ~/.bashrc' (or open a new shell) before launching the sim."
 else
-  echo "WARN: cffirmware not importable yet. Add this to your shell as a fallback:"
-  echo "      export PYTHONPATH=${FW_DIR}/build:\$PYTHONPATH"
+  echo "ERROR: cffirmware not importable. Check that ${BUILD_DIR} holds _cffirmware*.so." >&2
   exit 1
 fi
