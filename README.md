@@ -174,7 +174,7 @@ ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 ## Running the real drone
 
 First, in **Motive** set Data Streaming to **Multicast** at **50 Hz** — this must
-match `config/motion_capture.yaml`. Then:
+match `src/crazyswarm2/crazyflie/config/motion_capture.yaml`. Then:
 
 ```bash
 # terminal 1 — Crazyflie server (also starts mocap tracking + Foxglove bridge)

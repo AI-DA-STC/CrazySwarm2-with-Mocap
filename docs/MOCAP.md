@@ -7,6 +7,9 @@ host) to localize the drones. Motive streams pose data over NatNet to
 Three things must be right before flight: a **good calibration**, a **clean rigid
 body per drone**, and a **streaming rate matched to your radio bandwidth**.
 
+> Config files referred to below as `config/<name>.yaml` live at
+> `src/crazyswarm2/crazyflie/config/<name>.yaml`.
+
 ---
 
 ## 1. Camera calibration (brief)

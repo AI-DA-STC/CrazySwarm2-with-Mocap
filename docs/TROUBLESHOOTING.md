@@ -25,7 +25,7 @@
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| Drone never connects | Check `uri` in `config/crazyflies.yaml`; USB permissions ([README → Setup Step 3](../README.md#step-3--crazyradio-usb-permissions-manual-hardware-only)); each drone needs a unique address. |
+| Drone never connects | Check `uri` in `src/crazyswarm2/crazyflie/config/crazyflies.yaml`; USB permissions ([README → Setup Step 3](../README.md#step-3--crazyradio-usb-permissions-manual-hardware-only)); each drone needs a unique address. |
 | Latency / receive-rate warnings; choppy hold | Radio saturated — lower `firmware_logging` rates and mocap rate ([MOCAP §3](MOCAP.md#3-frequency--bandwidth-tuning-240--50-hz)); use one dongle per 1–2 drones. |
 | Won't arm | Check `/cf1/status` supervisor bits (tumbled / locked / can't-fly). Place level, retry. |
 | Drifts then emergency-lands | Estimator diverging — usually no `/poses` reaching the server (see mocap below). |
@@ -37,7 +37,7 @@
 | `/<body>/pose` silent | natnet not receiving frames: check `serverIP`/`clientIP` in the natnet launch match Motive's "Local Interface"; firewall off; multicast address/ports match; **Broadcast Frame** enabled in Motive. |
 | natnet node up but no topics | It's a LifecycleNode — it must reach **ACTIVE**. Launch with `activate:=true` or transition it manually. |
 | `/<body>/pose` flows, `/poses` silent | `DRONES` in `pose_bridge.py` doesn't match the rigid-body names. |
-| `/poses` flows, drone still drifts | Rate/QoS mismatch, or marker geometry in `config/motion_capture.yaml` doesn't match the physical layout; orientation flips → make marker patterns asymmetric. |
+| `/poses` flows, drone still drifts | Rate/QoS mismatch, or marker geometry in `src/crazyswarm2/crazyflie/config/motion_capture.yaml` doesn't match the physical layout; orientation flips → make marker patterns asymmetric. |
 | Cameras flash white with empty volume | Seeing stray reflections/noise — re-mask in Motive calibration or remove the reflector ([MOCAP §1](MOCAP.md#1-camera-calibration-brief)). |
 | Wrong orientation / axes | Motive ground plane not **Z-up**; recalibrate the ground plane. |
 
