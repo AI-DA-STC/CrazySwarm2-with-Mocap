@@ -214,13 +214,28 @@ your rig. Key files:
 `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
 Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
 
+### Code overlay
+
+`setup.sh` clones **pristine** upstream, so any customizations beyond the config
+YAMLs live in [`overlay/`](overlay/), which mirrors the package tree and is copied
+over `src/` after import. Currently overlaid (so a fresh clone reproduces this rig):
+
+- `overlay/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge**
+  node and sets `gui` default `False` (upstream has neither).
+- `overlay/crazyswarm2/crazyflie/scripts/gui.py`
+- `overlay/crazyswarm2/crazyflie_examples/.../{hello_world,nice_hover,arming}.py` — custom flight scripts.
+
+To capture another upstream edit, drop the modified file at the same relative path
+under `overlay/<package>/…` and re-run `setup.sh`.
+
 ## Repo layout
 
 ```
 CrazySwarm2/
 ├── crazyswarm2.repos     # vcs manifest (pinned upstream refs)
-├── scripts/              # setup.sh, install_deps.sh, build.sh
-├── config/               # tuned YAML overlay
+├── scripts/              # setup.sh, install_deps.sh, build.sh, setup_sim_firmware.sh
+├── config/               # tuned config YAMLs (overlaid onto crazyflie/config)
+├── overlay/              # custom upstream code (launch.py w/ foxglove, scripts)
 ├── pose_bridge.py        # natnet → /poses bridge (50 Hz)
 ├── docs/                 # RUNNING, MOCAP, TROUBLESHOOTING
 └── src/  build/  install/  log/   # generated, git-ignored

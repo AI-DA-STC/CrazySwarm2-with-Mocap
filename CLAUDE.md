@@ -35,7 +35,8 @@ scripts/
   install_deps.sh     # distro-aware apt + rosdep + pip
   build.sh            # colcon wrapper (LOW_MEM=1 for SBCs)
   setup_sim_firmware.sh  # build cffirmware bindings (SIM only)
-config/             # tuned overlay, copied over crazyflie/config by setup.sh
+config/             # tuned config YAMLs, copied over crazyflie/config by setup.sh
+overlay/            # custom upstream code (launch.py w/ foxglove, scripts) -> copied over src/
 pose_bridge.py      # natnet → /poses (NamedPoseArray @ 50 Hz)
 docs/               # RUNNING, MOCAP, TROUBLESHOOTING
 README.md           # single setup doc (no separate SETUP.md)
@@ -82,6 +83,10 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
 
 - Edit `config/*.yaml` here, not in `src/` — `setup.sh` overlays them onto the
   imported package, so editing `src/` is lost on re-import.
+- Customizations to upstream **code** (not config) go in `overlay/<pkg>/<rel-path>`;
+  `setup.sh` copies `overlay/` over `src/` after import. The custom `launch.py`
+  (foxglove node, `gui` default False) lives there — pristine upstream lacks it, so
+  a fresh setup without the overlay would have no foxglove and `gui` on.
 - `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
   Motive streaming rate (50 Hz).
 - Keep scripts distro-parameterized (`ros-${ROS_DISTRO}-…`); never hardcode `jazzy`.
