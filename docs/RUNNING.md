@@ -7,6 +7,9 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/CrazySwarm2/install/setup.bash
 ```
 
+> Config files referred to below as `config/<name>.yaml` live at
+> `src/crazyswarm2/crazyflie/config/<name>.yaml`. Edit them there and rebuild.
+
 ---
 
 ## A. Simulation (no hardware, no mocap)
@@ -165,9 +168,9 @@ all:
    ```bash
    ros2 run crazyflie listLogVariables --uri radio://0/80/2M/E7E7E7E701
    ```
-4. Re-apply the overlay and rebuild config, then relaunch:
+4. Rebuild and relaunch:
    ```bash
-   ./scripts/build.sh crazyflie     # rebuild after editing src/.../config/*.yaml
+   ./scripts/build.sh crazyflie     # rebuild after editing the config
    ros2 launch crazyflie launch.py
    ```
 
