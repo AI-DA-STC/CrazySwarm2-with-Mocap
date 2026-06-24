@@ -167,7 +167,7 @@ all:
    ```
 4. Re-apply the overlay and rebuild config, then relaunch:
    ```bash
-   cp config/*.yaml src/crazyswarm2/crazyflie/config/   # or ./scripts/setup.sh
+   ./scripts/build.sh crazyflie     # rebuild after editing src/.../config/*.yaml
    ros2 launch crazyflie launch.py
    ```
 

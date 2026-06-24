@@ -45,7 +45,8 @@ sudo apt-get install -y \
   ros-"${ROS_DISTRO}"-tf-transformations \
   ros-"${ROS_DISTRO}"-motion-capture-tracking || {
     echo "WARN: ros-${ROS_DISTRO}-motion-capture-tracking not available via apt."
-    echo "      Uncomment the motion_capture_tracking entry in crazyswarm2.repos and re-run setup.sh."
+    echo "      Clone it into src/ and rebuild:"
+    echo "      git clone --branch ros2 --recursive https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking"
   }
 
 # natnet_ros2's undeclared find_package deps. These ship with ros-<distro>-desktop,

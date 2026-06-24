@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# One-shot setup for the CrazySwarm2 stack.
-#   1. detect distro (Ubuntu 22.04/Humble or 24.04/Jazzy)
-#   2. import upstream sources (vcs)               -> ./src
-#   3. init git submodules (crazyflie_tools, ...)
-#   4. install apt + rosdep deps                   -> scripts/install_deps.sh
-#   5. apply the config overlay                    -> ./config -> crazyflie/config
-#   6. build                                       -> scripts/build.sh
+# One-shot setup for the CrazySwarm2 workspace.
 #
-# Idempotent: safe to re-run. Each step can also be run on its own.
+# The source is VENDORED in this repo (src/), so setup only needs to:
+#   1. detect distro (Ubuntu 22.04/Humble or 24.04/Jazzy)
+#   2. install apt + rosdep deps   -> scripts/install_deps.sh
+#   3. build                       -> scripts/build.sh
+#
+# For the simulator (backend:=sim) also run scripts/setup_sim_firmware.sh once.
+# Idempotent: safe to re-run.
 set -euo pipefail
 
 WS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,53 +31,18 @@ echo "=================================================================="
 echo " CrazySwarm2 setup  |  Ubuntu ${VERSION_ID}  |  ROS 2 ${ROS_DISTRO}"
 echo "=================================================================="
 
-# --- 1+2. import sources ------------------------------------------------------
-mkdir -p src
-echo "==> [1/5] Importing upstream sources (vcs import)"
-sudo apt-get update -qq && sudo apt-get install -y -qq python3-vcstool >/dev/null
-vcs import src < crazyswarm2.repos
+if [[ ! -d src/crazyswarm2 ]]; then
+  echo "ERROR: src/crazyswarm2 not found. This repo should contain the vendored" >&2
+  echo "       source — did the clone complete?" >&2
+  exit 1
+fi
 
-# --- 3. submodules ------------------------------------------------------------
-echo "==> [2/5] Initialising git submodules"
-for d in src/*/; do
-  if [[ -f "${d}.gitmodules" ]]; then
-    git -C "${d}" submodule update --init --recursive
-  fi
-done
-
-# --- 4. dependencies ----------------------------------------------------------
-echo "==> [3/5] Installing dependencies"
+# --- 1. dependencies ----------------------------------------------------------
+echo "==> [1/2] Installing dependencies"
 ROS_DISTRO="${ROS_DISTRO}" bash "${WS_ROOT}/scripts/install_deps.sh"
 
-# --- 5. overlays --------------------------------------------------------------
-echo "==> [4/5] Applying config + code overlay"
-# (a) tuned config YAMLs
-CFG_DST="src/crazyswarm2/crazyflie/config"
-if [[ -d "${CFG_DST}" ]]; then
-  for f in crazyflies.yaml motion_capture.yaml server.yaml teleop.yaml; do
-    if [[ -f "config/${f}" ]]; then
-      cp -v "config/${f}" "${CFG_DST}/${f}"
-    fi
-  done
-else
-  echo "WARN: ${CFG_DST} not found; skipping config overlay (did vcs import succeed?)."
-fi
-
-# (b) custom code overlay: files in overlay/<pkg>/... replace the imported
-# upstream copy (e.g. crazyflie launch.py with the foxglove node, custom scripts).
-if [[ -d overlay ]]; then
-  for pkg_dir in overlay/*/; do
-    pkg="$(basename "${pkg_dir}")"
-    if [[ -d "src/${pkg}" ]]; then
-      cp -rv "overlay/${pkg}/." "src/${pkg}/"
-    else
-      echo "WARN: src/${pkg} not found; skipping overlay for ${pkg}."
-    fi
-  done
-fi
-
-# --- 6. build -----------------------------------------------------------------
-echo "==> [5/5] Building workspace"
+# --- 2. build -----------------------------------------------------------------
+echo "==> [2/2] Building workspace"
 bash "${WS_ROOT}/scripts/build.sh"
 
 cat <<EOF
@@ -88,9 +53,10 @@ cat <<EOF
    source /opt/ros/${ROS_DISTRO}/setup.bash
    source ${WS_ROOT}/install/setup.bash
 
- Try the simulator first (no hardware needed):
-   ros2 launch crazyflie launch.py backend:=sim
+ Simulator (one-time extra step for backend:=sim):
+   ./scripts/setup_sim_firmware.sh        # builds the cffirmware bindings
+   ros2 launch crazyflie launch.py backend:=sim rviz:=True
 
- See docs/RUNNING.md for the hardware + mocap flow.
+ Hardware: see docs/RUNNING.md.
 ==================================================================
 EOF
