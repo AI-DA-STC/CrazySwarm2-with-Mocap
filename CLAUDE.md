@@ -1,18 +1,17 @@
-# CLAUDE.md — CrazySwarm2 (orchestration repo)
+# CLAUDE.md — CrazySwarm2 (self-contained workspace)
 
 Guidance for Claude Code working in this repository. Read before editing or debugging.
 
 ## What this repo is
 
-A thin **orchestration / meta-repo** for running an indoor **Crazyflie 2.1 swarm**
-with **OptiTrack** mocap, built on [crazyswarm2](https://github.com/IMRCLab/crazyswarm2).
-It does **not** vendor upstream source. It holds setup scripts, a tuned config
-overlay, the mocap bridge, and docs; the upstream packages are cloned at install
-time via a `vcs` manifest.
+A **self-contained ROS 2 workspace** for an indoor **Crazyflie 2.1 swarm** with
+**OptiTrack** mocap, built on [crazyswarm2](https://github.com/IMRCLab/crazyswarm2).
+The full customized source is **vendored in `src/`** (committed), so a clone is a
+byte-for-byte copy of the rig. `setup.sh` only installs deps and builds — it does
+**not** fetch upstream.
 
-`src/`, `build/`, `install/`, `log/` are **generated and git-ignored** — never edit
-or commit them. The source of truth is this repo's `scripts/`, `config/`, `docs/`,
-`crazyswarm2.repos`, and `pose_bridge.py`.
+- **`src/` IS committed** — edit source/config here directly; a clone reproduces the rig.
+- **`build/`, `install/`, `log/`, `core.*` are git-ignored** — never commit them.
 
 ## Architecture (data flow)
 
@@ -29,18 +28,23 @@ the natnet_ros2 + `pose_bridge.py` path is an alternative, not the default.
 ## Repo layout
 
 ```
-crazyswarm2.repos   # vcs manifest: crazyswarm2 + natnet_ros2 (pinned); mcap via rosdep
+src/                # VENDORED source (committed)
+  crazyswarm2/        # customized: configs, launch.py (foxglove node), scripts, examples
+  natnet_ros2/        # OptiTrack driver (+ vendored NatNetSDK)
 scripts/
-  setup.sh            # one-shot: vcs import → submodules → install_deps → overlay → build
+  setup.sh            # install_deps + build (source already present)
   install_deps.sh     # distro-aware apt + rosdep + pip
   build.sh            # colcon wrapper (LOW_MEM=1 for SBCs)
   setup_sim_firmware.sh  # build cffirmware bindings (SIM only)
-config/             # tuned config YAMLs, copied over crazyflie/config by setup.sh
-overlay/            # custom upstream code (launch.py w/ foxglove, scripts) -> copied over src/
 pose_bridge.py      # natnet → /poses (NamedPoseArray @ 50 Hz)
 docs/               # RUNNING, MOCAP, TROUBLESHOOTING
 README.md           # single setup doc (no separate SETUP.md)
 ```
+
+Key customized files inside `src/`:
+- `src/crazyswarm2/crazyflie/config/*.yaml` — drone/mocap/server/teleop config.
+- `src/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge** node,
+  `gui` default `False`, `foxglove` default `True` (upstream lacks the node).
 
 ## Build & run
 
@@ -77,20 +81,18 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
 - **ROS apt 404 churn.** `ros-<distro>-{sensor-msgs,tf2-ros,ament-cmake-auto}` can
   404 when apt tries to *upgrade* to a pruned pool version. `install_deps.sh` uses
   `--no-upgrade` for these (desktop already provides them).
-- **natnet NatNet SDK** is downloaded at build time via `wget` (needs internet).
+- **natnet NatNet SDK** is vendored under `src/natnet_ros2/deps/NatNetSDK/`
+  (x86_64). On a different arch the build re-downloads it via `wget` (needs internet).
 
 ## Conventions for Claude
 
-- Edit `config/*.yaml` here, not in `src/` — `setup.sh` overlays them onto the
-  imported package, so editing `src/` is lost on re-import.
-- Customizations to upstream **code** (not config) go in `overlay/<pkg>/<rel-path>`;
-  `setup.sh` copies `overlay/` over `src/` after import. The custom `launch.py`
-  (foxglove node, `gui` default False) lives there — pristine upstream lacks it, so
-  a fresh setup without the overlay would have no foxglove and `gui` on.
+- **Edit source/config directly in `src/`** and commit — there is no overlay or
+  re-import that would clobber it. A clone reproduces exactly what's committed.
+- After editing `src/`, rebuild with `./scripts/build.sh` (or `build.sh <pkg>`),
+  then re-source `install/setup.bash`. Rebuild dependents after `.msg`/`.srv` edits.
 - `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
   Motive streaming rate (50 Hz).
 - Keep scripts distro-parameterized (`ros-${ROS_DISTRO}-…`); never hardcode `jazzy`.
-- Update upstream pins in `crazyswarm2.repos`, then `vcs import src < crazyswarm2.repos`.
 - `gh` is not installed here and pushes need the user's GitHub auth — don't attempt
   to push; report and let the user push. Remotes: `origin`=jeremyCHH, `org`=AI-DA-STC.
 ```

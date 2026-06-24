@@ -3,8 +3,7 @@
 /install/
 /log/
 
-# ---- vcs-managed sources (cloned by scripts/setup.sh from crazyswarm2.repos) ----
-/src/
+# NOTE: src/ is VENDORED (committed) — the workspace source lives in the repo.
 
 # ---- crash dumps ----
 core.*

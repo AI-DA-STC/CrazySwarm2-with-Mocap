@@ -5,7 +5,7 @@
 | Symptom | Cause / fix |
 |---------|-------------|
 | `Unsupported Ubuntu <ver>` from a script | Only 22.04 (Humble) and 24.04 (Jazzy) are supported. Or `source /opt/ros/<distro>/setup.bash` before running so `$ROS_DISTRO` is set. |
-| `ros-<distro>-motion-capture-tracking` not found by apt/rosdep | Uncomment the `motion_capture_tracking` entry in [`crazyswarm2.repos`](../crazyswarm2.repos) and re-run `./scripts/setup.sh` to build it from source. |
+| `ros-<distro>-motion-capture-tracking` not found by apt/rosdep | Clone it into `src/` and rebuild: `git clone --branch ros2 --recursive https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking`, then `./scripts/build.sh`. |
 | `vcs: command not found` | `sudo apt install python3-vcstool` (also installed by `install_deps.sh`). |
 | `colcon build` fails on `crazyflie_interfaces` | Source ROS 2 first; ensure `ros-dev-tools` / `rosidl` packages are installed (`scripts/install_deps.sh`). |
 | Missing submodule headers (`crazyflie_tools`, link-cpp) | `cd src/crazyswarm2 && git submodule update --init --recursive`, then rebuild. |

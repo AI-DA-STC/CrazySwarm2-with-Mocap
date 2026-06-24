@@ -122,8 +122,9 @@ Guidelines:
   choppy position hold, dropped log packets, or the firmware supervisor
   triggering an emergency landing.
 
-After editing `config/*.yaml`, re-apply the overlay (or just rerun setup):
+The config files live in `src/crazyswarm2/crazyflie/config/`. Edit them there, then
+rebuild:
 
 ```bash
-cp config/*.yaml src/crazyswarm2/crazyflie/config/   # or: ./scripts/setup.sh
+./scripts/build.sh crazyflie
 ```

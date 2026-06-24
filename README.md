@@ -3,11 +3,11 @@
 Reproducible setup for an indoor **Crazyflie 2.1 swarm** flown with **OptiTrack**
 motion-capture localization, built on [Crazyswarm2](https://github.com/IMRCLab/crazyswarm2).
 
-This is a thin **orchestration repo**: it does not vendor the upstream source.
-Instead it holds the setup scripts, a tuned config overlay, the mocap bridge, and
-documentation, and pulls the upstream packages at install time via a
-[`vcs`](http://wiki.ros.org/vcstool) manifest. One command sets everything up on
-**Ubuntu 22.04 + ROS 2 Humble** or **Ubuntu 24.04 + ROS 2 Jazzy**.
+This is a **self-contained workspace**: the full source (our customized
+`crazyswarm2` + `natnet_ros2`) is **vendored in [`src/`](src/)**, so a clone is a
+byte-for-byte copy of the rig — no upstream fetching. One command installs the
+dependencies and builds it on **Ubuntu 22.04 + ROS 2 Humble** or
+**Ubuntu 24.04 + ROS 2 Jazzy**.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Motive / OptiTrack server (Windows)
 | `natnet_ros2` | github.com/L2S-lab/natnet_ros2 | OptiTrack / NatNet driver |
 | `motion_capture_tracking` | apt (`rosdep`) | Converts mocap data → `/poses` for the server |
 | `pose_bridge.py` | this repo | Aggregates per-body poses into `NamedPoseArray` |
-| `config/` | this repo | Tuned `crazyflies/motion_capture/server/teleop` YAML overlay |
+| `src/` (vendored) | this repo | Customized crazyswarm2 + natnet_ros2 (configs, launch.py, scripts) |
 
 ## Supported platforms
 
@@ -97,13 +97,10 @@ cd ~/CrazySwarm2
 ./scripts/setup.sh
 ```
 
-`setup.sh` runs, in order:
+The source is already in `src/`, so `setup.sh` just:
 
-1. `vcs import src < crazyswarm2.repos` — clone the pinned upstream packages.
-2. `git submodule update --init --recursive` — crazyswarm2 submodules (`crazyflie_tools`, …).
-3. `scripts/install_deps.sh` — apt deps + `rosdep install` (pulls `motion_capture_tracking`).
-4. config overlay — copy `config/*.yaml` over the upstream defaults.
-5. `scripts/build.sh` — `colcon build --symlink-install`.
+1. `scripts/install_deps.sh` — apt deps + `rosdep install` (pulls `motion_capture_tracking`).
+2. `scripts/build.sh` — `colcon build --symlink-install` at the repo root.
 
 Re-run any step on its own later:
 
@@ -169,9 +166,10 @@ ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 > source install/setup.bash
 > ```
 >
-> **Notes.** If `rosdep` can't find `motion-capture-tracking` on your distro,
-> uncomment its entry in [`crazyswarm2.repos`](crazyswarm2.repos) and re-run
-> `setup.sh`. On low-RAM machines use `LOW_MEM=1 ./scripts/build.sh`.
+> **Notes.** If `rosdep` can't find `motion-capture-tracking` on your distro, clone
+> it into `src/` (`git clone --branch ros2 --recursive
+> https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking`)
+> and rebuild. On low-RAM machines use `LOW_MEM=1 ./scripts/build.sh`.
 
 ## Running the real drone
 
@@ -202,50 +200,39 @@ Foxglove Studio app. Hover/landing height and durations are set in
 
 ## Configuration
 
-Your tuned configs live in [`config/`](config/) and are copied over the upstream
-defaults by `setup.sh`. Edit them here (not in `src/`) so a fresh clone reproduces
-your rig. Key files:
+The source (and its config) is vendored, so **edit files directly in `src/`** and
+commit — a fresh clone then reproduces your exact rig. Key files:
 
-- `config/crazyflies.yaml` — drone list, URIs, types, firmware logging rates.
-- `config/motion_capture.yaml` — Motive hostname/IP, marker layouts, QoS.
-- `config/server.yaml` — warning thresholds, sim backend/controller.
-- `config/teleop.yaml` — gamepad mapping.
+- `src/crazyswarm2/crazyflie/config/crazyflies.yaml` — drone list, URIs, types, firmware logging.
+- `src/crazyswarm2/crazyflie/config/motion_capture.yaml` — Motive hostname/IP, markers, QoS.
+- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller.
+- `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
+- `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
+  node, `gui` default `False`).
 
 `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
 Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
 
-### Code overlay
-
-`setup.sh` clones **pristine** upstream, so any customizations beyond the config
-YAMLs live in [`overlay/`](overlay/), which mirrors the package tree and is copied
-over `src/` after import. Currently overlaid (so a fresh clone reproduces this rig):
-
-- `overlay/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge**
-  node and sets `gui` default `False` (upstream has neither).
-- `overlay/crazyswarm2/crazyflie/scripts/gui.py`
-- `overlay/crazyswarm2/crazyflie_examples/.../{hello_world,nice_hover,arming}.py` — custom flight scripts.
-
-To capture another upstream edit, drop the modified file at the same relative path
-under `overlay/<package>/…` and re-run `setup.sh`.
+After editing anything in `src/`, rebuild: `./scripts/build.sh` (or just the
+changed package, e.g. `./scripts/build.sh crazyflie`).
 
 ## Repo layout
 
 ```
 CrazySwarm2/
-├── crazyswarm2.repos     # vcs manifest (pinned upstream refs)
+├── src/                  # VENDORED source — crazyswarm2 + natnet_ros2 (committed)
 ├── scripts/              # setup.sh, install_deps.sh, build.sh, setup_sim_firmware.sh
-├── config/               # tuned config YAMLs (overlaid onto crazyflie/config)
-├── overlay/              # custom upstream code (launch.py w/ foxglove, scripts)
 ├── pose_bridge.py        # natnet → /poses bridge (50 Hz)
 ├── docs/                 # RUNNING, MOCAP, TROUBLESHOOTING
-└── src/  build/  install/  log/   # generated, git-ignored
+├── CLAUDE.md
+└── build/  install/  log/   # generated, git-ignored
 ```
 
-## Updating upstream
+## Provenance
 
-Edit the pinned `version:` in `crazyswarm2.repos`, then:
+`src/` was vendored from these upstreams (with local customizations):
 
-```bash
-vcs import src < crazyswarm2.repos   # checks out the new refs
-./scripts/build.sh
-```
+- `crazyswarm2` — github.com/IMRCLab/crazyswarm2 (`ae23edc`)
+- `natnet_ros2` — github.com/L2S-lab/natnet_ros2 (`883b095`)
+
+To pull upstream changes, diff against those and merge manually, or re-vendor.
