@@ -49,8 +49,9 @@ done
 echo "==> [3/5] Installing dependencies"
 ROS_DISTRO="${ROS_DISTRO}" bash "${WS_ROOT}/scripts/install_deps.sh"
 
-# --- 5. config overlay --------------------------------------------------------
-echo "==> [4/5] Applying config overlay"
+# --- 5. overlays --------------------------------------------------------------
+echo "==> [4/5] Applying config + code overlay"
+# (a) tuned config YAMLs
 CFG_DST="src/crazyswarm2/crazyflie/config"
 if [[ -d "${CFG_DST}" ]]; then
   for f in crazyflies.yaml motion_capture.yaml server.yaml teleop.yaml; do
@@ -59,7 +60,20 @@ if [[ -d "${CFG_DST}" ]]; then
     fi
   done
 else
-  echo "WARN: ${CFG_DST} not found; skipping overlay (did vcs import succeed?)."
+  echo "WARN: ${CFG_DST} not found; skipping config overlay (did vcs import succeed?)."
+fi
+
+# (b) custom code overlay: files in overlay/<pkg>/... replace the imported
+# upstream copy (e.g. crazyflie launch.py with the foxglove node, custom scripts).
+if [[ -d overlay ]]; then
+  for pkg_dir in overlay/*/; do
+    pkg="$(basename "${pkg_dir}")"
+    if [[ -d "src/${pkg}" ]]; then
+      cp -rv "overlay/${pkg}/." "src/${pkg}/"
+    else
+      echo "WARN: src/${pkg} not found; skipping overlay for ${pkg}."
+    fi
+  done
 fi
 
 # --- 6. build -----------------------------------------------------------------
