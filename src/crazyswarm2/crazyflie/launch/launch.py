@@ -126,8 +126,9 @@ def generate_launch_description():
                               default_value=default_rviz_config_path),
         DeclareLaunchArgument('backend', default_value='cpp'),
         DeclareLaunchArgument('debug', default_value='False'),
-        DeclareLaunchArgument('rviz', default_value='False'),
+        DeclareLaunchArgument('rviz', default_value='True'),
         DeclareLaunchArgument('gui', default_value='False'),
+        DeclareLaunchArgument('preflight', default_value='True'),
         DeclareLaunchArgument('foxglove', default_value='True'),
         DeclareLaunchArgument('teleop', default_value='True'),
         DeclareLaunchArgument('mocap', default_value='True'),
@@ -173,6 +174,18 @@ def generate_launch_description():
             namespace='',
             executable='gui.py',
             name='gui',
+            parameters=[{
+                "use_sim_time": PythonExpression(["'", LaunchConfiguration('backend'), "' == 'sim'"]),
+            }]
+        ),
+        Node(
+            condition=LaunchConfigurationEquals('preflight', 'True'),
+            package='crazyflie',
+            namespace='',
+            executable='preflight_kalman_plotter.py',
+            name='preflight_kalman_plotter',
+            output='screen',
+            additional_env={'PYTHONNOUSERSITE': '1'},
             parameters=[{
                 "use_sim_time": PythonExpression(["'", LaunchConfiguration('backend'), "' == 'sim'"]),
             }]

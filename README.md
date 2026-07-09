@@ -20,7 +20,9 @@ Motive / OptiTrack server (Windows)
         ▼
   crazyflie_server  ──►  Crazyradio USB ──►  Crazyflie 2.1 (cf1, cf2, …)
         ▲
-        └── user scripts via the crazyflie_py API
+        ├── user scripts via the crazyflie_py API
+        └── preflight GUI + RViz  [both auto-started by launch.py]
+            go/no-go checks: battery, mocap rate, mocap-vs-estimate error
 
   Alternative mocap path (open driver):
     Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /poses
@@ -32,6 +34,7 @@ Motive / OptiTrack server (Windows)
 | `natnet_ros2` | github.com/L2S-lab/natnet_ros2 | OptiTrack / NatNet driver |
 | `motion_capture_tracking` | apt (`rosdep`) | Converts mocap data → `/poses` for the server |
 | `pose_bridge.py` | this repo | Aggregates per-body poses into `NamedPoseArray` |
+| `preflight_kalman_plotter.py` | this repo (`src/crazyswarm2/crazyflie/scripts/`) | Preflight GUI — per-drone go/no-go checks before flight |
 | `src/` (vendored) | this repo | Customized crazyswarm2 + natnet_ros2 (configs, launch.py, scripts) |
 
 ## Supported platforms
@@ -177,16 +180,24 @@ First, in **Motive** set Data Streaming to **Multicast** at **50 Hz** — this m
 match `src/crazyswarm2/crazyflie/config/motion_capture.yaml`. Then:
 
 ```bash
-# terminal 1 — Crazyflie server (also starts mocap tracking + Foxglove bridge)
-# RViz is OFF by default — add rviz:=True for the window
-ros2 launch crazyflie launch.py rviz:=True
+# terminal 1 — Crazyflie server. Also starts mocap tracking, RViz, the
+# preflight GUI and the Foxglove bridge (all on by default;
+# rviz:=false / preflight:=False to disable)
+ros2 launch crazyflie launch.py
+
+# run the preflight checklist in the GUI (banner clear, mocap ~50 Hz,
+# err.yaw ≈ 0°, battery green) — see docs/RUNNING.md → Preflight GUI
 
 # terminal 2 — takeoff, hover, land
 ros2 run crazyflie_examples hello_world
 ```
 
-With `rviz:=True` you should see `cf1` (onboard EKF estimate) and `cf1_mocap`
-(mocap) overlapping. Foxglove is on by default but needs the bridge package
+In RViz you should see `cf1` (onboard EKF estimate) and `cf1_mocap` (mocap)
+overlapping. The **preflight GUI** is the go/no-go check before every flight —
+battery, mocap rate, radio health, and mocap-vs-estimate error per drone; the
+full walkthrough is in
+[docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
+Foxglove is on by default but needs the bridge package
 (`sudo apt install ros-$ROS_DISTRO-foxglove-bridge`) and is viewed from the
 Foxglove Studio app. Hover/landing height and durations are set in
 `hello_world.py` — see
@@ -194,7 +205,7 @@ Foxglove Studio app. Hover/landing height and durations are set in
 
 ## Documentation
 
-- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; custom logging
+- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging
 - [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failures
 
@@ -208,7 +219,9 @@ commit — a fresh clone then reproduces your exact rig. Key files:
 - `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller.
 - `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
 - `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
-  node, `gui` default `False`).
+  and **preflight GUI** nodes; `rviz` default `True`, `gui` default `False`).
+- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — the preflight GUI
+  (thresholds and takeoff/land setpoints are constants at the top).
 
 `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
 Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
