@@ -192,15 +192,87 @@ ros2 launch crazyflie launch.py
 ros2 run crazyflie_examples hello_world
 ```
 
-In RViz you should see `cf1` (onboard EKF estimate) and `cf1_mocap` (mocap)
-overlapping. The **preflight GUI** is the go/no-go check before every flight —
-battery, mocap rate, radio health, and mocap-vs-estimate error per drone; the
-full walkthrough is in
+### What to expect after launch
+
+`ros2 launch crazyflie launch.py` starts the server **and** three helper
+surfaces (all on by default):
+
+- **RViz** — you should see each drone's onboard EKF estimate (`cf1`) and its
+  mocap frame (`cf1_mocap`) sitting **on top of each other**. Axes that are
+  offset or rotated relative to each other mean a frame/orientation problem
+  (see the misalignment example below).
+- **Preflight GUI** (`crazyflie preflight`) — the per-drone go/no-go dashboard
+  described next. One drone is shown at a time; **Prev/Next** (or ←/→) cycles
+  through the enabled drones.
+- **Foxglove bridge** — needs the package
+  (`sudo apt install ros-$ROS_DISTRO-foxglove-bridge`) and is viewed from the
+  Foxglove Studio app, not a window of its own.
+
+If a drone is missing from the GUI it is `enabled: false` in `crazyflies.yaml`.
+If the mocap-Hz trace never rises off zero, mocap isn't reaching the server —
+see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#mocap-pipeline).
+
+### Preflight checks — reading the GUI
+
+The **preflight GUI** is the go/no-go check before *every* flight. It shows four
+panels (kalman telemetry, pose/`stateEstimate`, connectivity, and
+mocap-vs-onboard error) plus per-drone and all-drone **Takeoff / Land / Arm /
+Disarm / E-STOP** buttons and **Record CSV**. Full walkthrough:
 [docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
-Foxglove is on by default but needs the bridge package
-(`sudo apt install ros-$ROS_DISTRO-foxglove-bridge`) and is viewed from the
-Foxglove Studio app. Hover/landing height and durations are set in
-`hello_world.py` — see
+
+Clear the drone against these before arming:
+
+| Check | Where | Healthy | Go / no-go |
+|-------|-------|---------|-----------|
+| **Battery** | header voltage | **green > 3.8 V** | **orange 3.7–3.8 V** = fly but land soon; **red < 3.7 V** = **NO-FLY** (charge/swap). `(charging)` = NO-FLY until unplugged. |
+| **Mocap rate** | connectivity → `mocap [Hz]` | flat **~50 Hz** | sagging or decaying toward 0 = mocap dying → **NO-FLY** |
+| **Radio** | connectivity → `rssi` / `latency` | rssi steady, latency low & flat | erratic / climbing latency = saturated radio (lower logging/mocap rate) |
+| **Orientation** | error panel → dashed `err.yaw` + red banner | **\|err.yaw\| ≤ 5°** | 5–15° **fix first**; **> 20° NO-FLY**; the red *"MOCAP ORIENTATION MISALIGNED"* banner fires above 10° |
+| **Estimator fusion** | error panel → `err.x/y/z/norm` | small & steady (~mm) | diverging = Kalman not fusing mocap → **NO-FLY** |
+
+> **Don't be reassured by tiny position error.** `locSrv.extPosStdDev` force-fuses
+> mocap position, so `err.x/y/z` stays ~1 mm *even when the rigid body is defined
+> rotated* — that offset is invisible at rest but becomes a **fly-away** in the
+> air. The orientation error (`err.yaw`) and the banner are what catch it. Press
+> **`r`** to reset the Kalman filter (all drones); **`e`** is E-STOP.
+
+**Healthy preflight (Flow deck fitted).** All four panels steady, `mocap ~50 Hz`,
+`err.yaw` ≈ a couple of degrees. Battery here is 3.71 V (orange) — flyable, but
+plan to land and swap soon.
+
+![Healthy preflight with a Flow deck fitted — steady traces, mocap 50 Hz, small err.yaw](Pics/healthy_preflight_with_flowdeck.png)
+
+**Healthy preflight (no Flow deck).** With no Flow deck the flow/range channels
+(`motion.deltaX/Y`, `range.zrange`, `stateEstimateZ.vx/vy`) sit flat or noisy —
+**this is expected, not a fault.** Judge such a drone on mocap, battery and yaw.
+
+![Healthy preflight without a Flow deck — flow/range channels idle, which is normal](Pics/healthy_readings_without_flowdeck.png)
+
+**Warning-band battery.** 3.72 V shows orange: still flyable, but you're near the
+warning threshold — do a short flight and recharge.
+
+![Preflight GUI showing an orange warning-band battery at 3.72 V](Pics/medium_battery.png)
+
+**NO-FLY — orientation misaligned + low battery.** The red banner reads
+*"MOCAP ORIENTATION MISALIGNED: cf2 (yaw 18°)"*, `err.yaw` (dashed) climbs toward
+15°, and RViz (right) shows the `cf2_mocap` axes visibly rotated. Battery is
+3.64 V (red). Do **not** fly: recreate the Motive rigid body with the drone's
+forward axis on global **+X** ([docs/MOCAP.md](docs/MOCAP.md#2-defining-rigid-bodies))
+and charge the pack.
+
+![NO-FLY example — red orientation-misalignment banner, err.yaw ~15°, rotated RViz axes, red 3.64 V battery](Pics/orientation_error_and_low_battery.png)
+
+### What a flight looks like
+
+During takeoff/hover/land the kalman, pose and error panels show real motion —
+transient swings and error spikes while the drone moves — then settle back when
+it lands. **`mocap [Hz]` should stay pinned at ~50 Hz the whole time**; a drop
+mid-flight is the mocap failure that triggers an emergency land. Note the battery
+sags under load (3.68 V, red, after the flight below):
+
+![Preflight GUI during/after a flight with a Flow deck — motion in the telemetry panels, mocap held at 50 Hz, battery drained to 3.68 V](Pics/healthy_after_flying_w_Flowdeck.png)
+
+Hover/landing height and durations are set in `hello_world.py` — see
 [docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
 
 ## Documentation
