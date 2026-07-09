@@ -24,6 +24,8 @@ Alt mocap path: Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /
 
 `motion_capture_tracking` (started by `launch.py`) connects directly to Motive —
 the natnet_ros2 + `pose_bridge.py` path is an alternative, not the default.
+`launch.py` also auto-starts RViz and the **preflight GUI**
+(`preflight_kalman_plotter.py` — per-drone go/no-go checks; docs/RUNNING.md §C).
 
 ## Repo layout
 
@@ -43,8 +45,17 @@ README.md           # single setup doc (no separate SETUP.md)
 
 Key customized files inside `src/`:
 - `src/crazyswarm2/crazyflie/config/*.yaml` — drone/mocap/server/teleop config.
-- `src/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge** node,
-  `gui` default `False`, `foxglove` default `True` (upstream lacks the node).
+  `crazyflies.yaml` has the `kalman_preflight` custom log topic (feeds the
+  preflight GUI; 22 B of the 26 B log-block budget — vars must exist in the
+  firmware log TOC or the cpp server aborts at connect).
+- `src/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge** and
+  **preflight GUI** nodes; defaults: `rviz` `True`, `preflight` `True`,
+  `foxglove` `True`, `gui` `False` (upstream lacks the extra nodes).
+- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — preflight GUI.
+  Constants at the top: `ORIENT_WARN_DEG` 10°, `ERR_STALE_S` 3 s, takeoff/land
+  setpoints (0.5 m/3 s, 0.03 m/3 s), `LOG_DIR` = `~/crazyswarm_ws/preflight_logs`
+  (hardcoded, NOT under this repo). Keys: `r` reset kalman, `e` broadcast e-stop
+  (deliberate); takeoff/land have no keys on purpose.
 
 ## Build & run
 
@@ -53,7 +64,7 @@ Key customized files inside `src/`:
 ./scripts/setup.sh                                  # full setup + build
 ./scripts/setup_sim_firmware.sh                     # only if using backend:=sim
 source /opt/ros/$ROS_DISTRO/setup.bash && source install/setup.bash
-ros2 launch crazyflie launch.py backend:=sim rviz:=True   # rviz is OFF by default
+ros2 launch crazyflie launch.py backend:=sim        # rviz + preflight GUI on by default
 ros2 run crazyflie_examples hello_world             # takeoff/hover/land
 ```
 Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
@@ -75,9 +86,26 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
 - **conda shadows system Python.** ROS 2 runs nodes with `/usr/bin/python3`. A conda
   base env (different Python) causes `No module named '_cffirmware'` and rclpy errors.
   Deactivate conda for ROS work. (Intentionally NOT special-cased in the scripts.)
-- **RViz is OFF by default** in `launch.py` (`rviz:=False`); pass `rviz:=True`.
-  `foxglove:=True` by default but needs `ros-$ROS_DISTRO-foxglove-bridge` (installed
-  by `install_deps.sh`); view via the Foxglove Studio app, not a window.
+- **RViz and the preflight GUI are ON by default** in `launch.py`
+  (`rviz:=false` / `preflight:=False` to disable). `foxglove:=True` by default
+  but needs `ros-$ROS_DISTRO-foxglove-bridge` (installed by `install_deps.sh`);
+  view via the Foxglove Studio app, not a window.
+- **Mocap "died" / `/poses` 0 publishers** — CONFIRMED cause on this rig: a
+  leftover process bound to UDP 1511. Two `SO_REUSEPORT` sockets on 1511 → the
+  kernel gives each NatNet datagram to only ONE socket → the mocap node starves
+  and hangs silently in libmotioncapture `connect()` (no crash, not in
+  `ros2 node list`). Diagnose `ss -uanp | grep :1511`; kill the orphan and
+  relaunch. Ping to the Motive PC proves nothing (unicast ≠ multicast).
+- **Motive transmission type is read once at connect** (apt
+  `motion_capture_tracking` requires Multicast) — after changing it, fully
+  restart the launch. A frozen mocap node ignores SIGINT (blocked in `recv`);
+  launch escalates to SIGKILL — check `pgrep -f motion_capture_tracking` for
+  leftovers (they make the next connect SIGABRT).
+- **Rigid-body orientation.** Create the Motive rigid body with the drone's
+  forward axis on global +X. `locSrv.extPosStdDev=1e-3` force-fuses mocap
+  position, so position error is ~1 mm even with a rotated body — a yaw offset
+  is invisible at rest and a fly-away in flight. The preflight GUI's banner /
+  `err.yaw` catches it (±5° fly; 5–15° fix; >20° no fly).
 - **ROS apt 404 churn.** `ros-<distro>-{sensor-msgs,tf2-ros,ament-cmake-auto}` can
   404 when apt tries to *upgrade* to a pruned pool version. `install_deps.sh` uses
   `--no-upgrade` for these (desktop already provides them).
@@ -95,4 +123,3 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
 - Keep scripts distro-parameterized (`ros-${ROS_DISTRO}-…`); never hardcode `jazzy`.
 - `gh` is not installed here and pushes need the user's GitHub auth — don't attempt
   to push; report and let the user push. Remotes: `origin`=jeremyCHH, `org`=AI-DA-STC.
-```

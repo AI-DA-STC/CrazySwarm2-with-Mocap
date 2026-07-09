@@ -1,11 +1,14 @@
 # MOCAP — OptiTrack setup, rigid bodies, and frequency tuning
 
 This stack uses an OptiTrack camera system running **Motive** (on the Windows
-host) to localize the drones. Motive streams pose data over NatNet to
-`natnet_ros2`, which `pose_bridge.py` forwards to the swarm server as `/poses`.
+host) to localize the drones. Motive streams pose data over NatNet (multicast)
+to `motion_capture_tracking` — started by `launch.py` — which publishes
+`/poses` for the swarm server. The open `natnet_ros2` + `pose_bridge.py` path
+is an alternative, not the default (see [RUNNING §B](RUNNING.md#b-hardware-flight-with-optitrack)).
 
-Three things must be right before flight: a **good calibration**, a **clean rigid
-body per drone**, and a **streaming rate matched to your radio bandwidth**.
+Four things must be right before flight: a **good calibration**, a **clean rigid
+body per drone**, the **rigid body's forward axis on +X** (§2), and a
+**streaming rate matched to your radio bandwidth**.
 
 > Config files referred to below as `config/<name>.yaml` live at
 > `src/crazyswarm2/crazyflie/config/<name>.yaml`.
@@ -43,7 +46,8 @@ Each drone needs its own rigid body so Motive streams one pose per drone:
 
 1. Place the drone in the volume so its markers (or the single active marker /
    mocap-deck pattern) are visible. The markers should appear as a small cluster
-   in the *Perspective* view.
+   in the *Perspective* view. **Point the drone's forward axis along global +X
+   before creating the body** — see the orientation rule below.
 2. Select those markers, right-click → **Rigid Body → Create From Selected
    Markers** (or press **Ctrl+T**).
 3. In the rigid body's properties, give it a **name that matches everything
@@ -54,6 +58,17 @@ Each drone needs its own rigid body so Motive streams one pose per drone:
 4. Enable **streaming IDs / names** and make sure orientation looks stable (the
    rigid body's axes shouldn't jitter or flip). Keep marker patterns
    **asymmetric and distinct between drones** so Motive doesn't swap their IDs.
+
+> **Orientation rule.** The rigid body's zero orientation is captured at
+> creation, so create it with the drone's **forward axis aligned to global
+> +X**. Otherwise the onboard yaw inherits a constant offset: mocap *position*
+> is force-fused into the Kalman (`locSrv.extPosStdDev = 1e-3`), so position
+> looks perfect (~1 mm) even with a rotated body — the offset is invisible at
+> rest and becomes a fly-away in flight. The preflight GUI catches this (red
+> misalignment banner / dashed `err.yaw`, see
+> [RUNNING §C](RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy)); RViz
+> shows it as rotated axes between the `<cf>` and `<cf>_mocap` frames. If in
+> doubt, delete the rigid body, re-orient the drone, and recreate it.
 
 > The marker geometry in `config/motion_capture.yaml`
 > (`marker_configurations`) must match the physical marker layout on the drone
@@ -73,8 +88,12 @@ log topics so the 2 Mbit/s radio is not maxed out.
 2. Make sure **Broadcast Frame Data** is enabled and the NatNet streaming engine
    is on (turn off VRPN/Trackd if unused).
 3. Set the **data signal / transmission type** to **Multicast** (not Unicast).
-   This must match `type: optitrack_closed_source` in
-   `config/motion_capture.yaml`, which expects the multicast stream.
+   The apt `motion_capture_tracking` requires the multicast stream
+   (`type: optitrack_closed_source` in `config/motion_capture.yaml`). The
+   transmission type is read **once at connect** — after changing it in Motive,
+   fully restart the launch (and check for leftover frozen mocap processes
+   first, see [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline)). See §4
+   for what multicast vs unicast actually means.
 4. Set the **point cloud / camera rate** to **50 Hz** (Motive *Settings →
    Cameras → Rate*, or the system rate). The streaming rate follows the camera
    frame rate, and must match `poses.qos.deadline: 50.0` in
@@ -107,17 +126,19 @@ all:
       status:
         frequency: 1    # Hz
     custom_topics:
-      estimator:
-        frequency: 5    # Hz   (firmware default is 50 — reduced to save bandwidth)
-        vars: [stateEstimate.x, stateEstimate.y, stateEstimate.z]
+      kalman_preflight:
+        frequency: 5    # Hz — feeds the preflight GUI (RUNNING §C); keep enabled
+        vars: [kalman.stateX, kalman.stateY, kalman.stateZ, motion.deltaX,
+               motion.deltaY, range.zrange, stateEstimateZ.vx, stateEstimateZ.vy]
 ```
 
 Guidelines:
 
 - **One radio dongle per 1–2 drones.** Drones on the same URI channel share the
   same radio bandwidth.
-- Keep total logging modest: `pose @ 10 Hz`, `status @ 1 Hz`, one custom block
-  `@ 5 Hz` is enough for monitoring. Add high-rate logging (50 Hz attitude/kalman
+- Keep total logging modest: `pose @ 10 Hz`, `status @ 1 Hz`, the
+  `kalman_preflight` block `@ 5 Hz` is enough for monitoring. Add high-rate
+  logging (50 Hz attitude/kalman
   blocks are commented out in the YAML) only when actively debugging, and remove
   it again for normal flight.
 - **Symptoms of a saturated radio:** latency / receive-rate warnings from
@@ -131,3 +152,19 @@ rebuild:
 ```bash
 ./scripts/build.sh crazyflie
 ```
+
+## 4. Multicast vs unicast (primer)
+
+- **Multicast** — Motive sends ONE stream to a multicast group address; every
+  client that joins the group receives it. Needs healthy IGMP on the LAN (the
+  switch/router must forward group joins) — and any process squatting on UDP
+  1511 can silently starve the real client (see
+  [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline)).
+- **Unicast** — Motive sends a separate copy of the stream to each client. No
+  IGMP dependency, at the cost of per-client bandwidth on the Motive PC.
+- The number of **drones** is unaffected by the choice: all rigid bodies ride
+  in every NatNet frame either way, and the drones themselves get their poses
+  over the Crazyradio, not the network.
+- The apt `motion_capture_tracking` path used by `launch.py` requires
+  **Multicast**. The vendored `natnet_ros2` path supports unicast (its
+  `serverType` param) if the LAN ever can't do multicast.
