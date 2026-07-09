@@ -230,6 +230,36 @@ ros2 topic echo /cf1/status --once
 ros2 topic echo /cf1/connection_statistics --once
 ```
 
+### Viewing a drone's topics (ROS_DOMAIN_ID)
+
+In this setup **all drones share the same ROS domain** — they are **not** separated
+by `ROS_DOMAIN_ID`. Each drone is separated by its **namespace** instead, e.g.
+`/cf1/pose`, `/cf2/pose`. To narrow the topic list to one drone, filter by namespace:
+
+```bash
+ros2 topic list | grep cf1        # only cf1's topics
+ros2 topic echo /cf1/pose         # echo a specific drone topic
+```
+
+`ROS_DOMAIN_ID` only matters in two cases:
+
+1. **Your terminal sees no topics at all.** The shell's `ROS_DOMAIN_ID` must
+   **match** the one the crazyflie stack was launched with (default `0`). In every
+   terminal that needs to see the topics, set the same value (and a matching
+   `ROS_LOCALHOST_ONLY`), then re-list:
+   ```bash
+   export ROS_DOMAIN_ID=<same value as the running stack>
+   ros2 topic list
+   ```
+2. **Shared lab network / multiple users on one machine.** Pick a unique
+   `ROS_DOMAIN_ID` (0–101) and `export ROS_LOCALHOST_ONLY=1` so you don't see — or
+   accidentally command — someone else's robots. (See upstream crazyswarm2
+   `docs2/usage.rst`.)
+
+> The `natnet_ros2` helper GUI (`src/natnet_ros2/scripts/helper_node_r2.py`) has a
+> domain-id selector — it sets which domain the **NatNet driver node** publishes on,
+> i.e. the driver's domain, not a per-drone separation.
+
 ## F. Enabling extra telemetry logging (custom topics)
 
 The drones can stream onboard firmware variables back as ROS topics. This is
