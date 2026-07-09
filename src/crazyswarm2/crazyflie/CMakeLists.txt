@@ -107,6 +107,7 @@ install(PROGRAMS
   scripts/aideck_streamer.py
   scripts/gui.py
   scripts/flash.py
+  scripts/preflight_kalman_plotter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
