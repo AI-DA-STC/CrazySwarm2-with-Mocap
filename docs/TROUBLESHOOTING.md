@@ -34,18 +34,34 @@
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `/<body>/pose` silent | natnet not receiving frames: check `serverIP`/`clientIP` in the natnet launch match Motive's "Local Interface"; firewall off; multicast address/ports match; **Broadcast Frame** enabled in Motive. |
+| Mocap suddenly "died": `/poses` silent, `ros2 topic info /poses` shows **0 publishers**, mocap node absent from `ros2 node list` | **CONFIRMED on this rig:** a leftover process bound to UDP 1511 (e.g. a stray debug listener). With two `SO_REUSEPORT` sockets on 1511 the kernel delivers each NatNet datagram to only ONE socket — the mocap node starves and hangs **silently** inside libmotioncapture `connect()` (no crash, no publisher). Diagnose: `ss -uanp \| grep :1511` — two sockets = the bug. Fix: kill the orphan, relaunch. Note: ping to the Motive PC proves nothing (unicast works while multicast is starved). |
+| Changed the Motive transmission type but the node still gets nothing | Transmission type is read **once at connect**. Fully restart the launch after changing it. The apt `motion_capture_tracking` requires **Multicast** ([MOCAP §4](MOCAP.md#4-multicast-vs-unicast-primer)). |
+| Mocap node won't die on Ctrl-C; next launch's connect aborts with SIGABRT | A frozen mocap node ignores SIGINT (blocked in `recv`); the launch escalates to SIGKILL, but check `pgrep -f motion_capture_tracking` for leftovers before relaunching — a leftover can make the next connect abort. |
+| Yaw offset / fly-away despite perfect position; preflight GUI shows the red misalignment banner or large dashed `err.yaw` | Motive rigid body was created rotated. Recreate it with the drone's forward axis on global +X ([MOCAP §2](MOCAP.md#2-defining-rigid-bodies)). Position error stays ~1 mm regardless (mocap position is force-fused) — don't let it reassure you. Go/no-go: ±5° fly; 5–15° fix first; >20° do not fly. |
+| `/<body>/pose` silent (natnet_ros2 path) | natnet not receiving frames: check `serverIP`/`clientIP` in the natnet launch match Motive's "Local Interface"; firewall off; multicast address/ports match; **Broadcast Frame** enabled in Motive. |
 | natnet node up but no topics | It's a LifecycleNode — it must reach **ACTIVE**. Launch with `activate:=true` or transition it manually. |
 | `/<body>/pose` flows, `/poses` silent | `DRONES` in `pose_bridge.py` doesn't match the rigid-body names. |
 | `/poses` flows, drone still drifts | Rate/QoS mismatch, or marker geometry in `src/crazyswarm2/crazyflie/config/motion_capture.yaml` doesn't match the physical layout; orientation flips → make marker patterns asymmetric. |
 | Cameras flash white with empty volume | Seeing stray reflections/noise — re-mask in Motive calibration or remove the reflector ([MOCAP §1](MOCAP.md#1-camera-calibration-brief)). |
 | Wrong orientation / axes | Motive ground plane not **Z-up**; recalibrate the ground plane. |
 
+## Preflight GUI
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| A drone doesn't appear in the GUI | It has `enabled: false` in `crazyflies.yaml`, or the GUI was pointed at a different yaml with `--config`. |
+| GUI shows every drone (incl. disabled) plus a yaml warning | The GUI couldn't read `crazyflies.yaml` — it then accepts everything. Fix the path / pass `--config <path>`. |
+| Mocap Hz trace in the connectivity panel decays to 0 | Mocap died — see the Mocap pipeline table above (UDP 1511 orphan is the confirmed cause on this rig). |
+| kalman telemetry panel empty | The `kalman_preflight` custom log topic was removed/renamed in `crazyflies.yaml` — restore it ([RUNNING §F](RUNNING.md#f-enabling-extra-telemetry-logging-custom-topics)). |
+
 ## Quick diagnostics
 
 ```bash
-ros2 topic hz /cf1/pose       # natnet output
-ros2 topic hz /poses          # bridge output (~50 Hz expected)
+ros2 topic hz /cf1/pose       # onboard pose (firmware logging)
+ros2 topic hz /poses          # mocap output (~50 Hz expected)
+ros2 topic info /poses        # publisher count — 0 = mocap node dead/starved
+ss -uanp | grep :1511         # two sockets on 1511 = orphan starving the mocap node
+pgrep -f motion_capture_tracking   # leftover frozen mocap process?
 ros2 topic echo /cf1/status --once          # battery / supervisor / link
 ros2 run tf2_tools view_frames               # TF tree
 ros2 node list ; ros2 topic list
