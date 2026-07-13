@@ -295,14 +295,17 @@ Hover/landing height and durations are set in `hello_world.py` — see
 Every drone has an **E-STOP** button in the preflight GUI (and the `e` key) that
 cuts motors instantly; **E-STOP (all)** kills the whole swarm at once. Short demo:
 
-<!-- INLINE PLAYER: to embed a real player, drag video/crazyfly_estop_draft1.mp4
-     into the GitHub web editor for this README (the pencil ✏️ → drag the file into
-     the text area) or into any issue comment. GitHub uploads it and inserts a
-     https://github.com/user-attachments/assets/<id> URL. Paste that URL on its own
-     line here (it renders as an inline player) and you can delete the fallback link
-     below. -->
+![E-STOP demo — drone motors cut instantly from the preflight GUI](video/crazyfly_estop_draft1.gif)
 
-▶️ [Watch the e-stop demo](video/crazyfly_estop_draft1.mp4) (click to play/download)
+▶️ [Full-quality video with audio](video/crazyfly_estop_draft1.mp4) (opens GitHub's player / downloads)
+
+<!-- OPTIONAL upgrade to a real inline player with audio: drag
+     video/crazyfly_estop_draft1.mp4 into the GitHub web editor for this README
+     (pencil ✏️ → drag the file into the text area). GitHub uploads it and inserts
+     a https://github.com/user-attachments/assets/<id> URL; paste that URL on its
+     own line here and delete the GIF above if you prefer. -->
+
+
 
 ## Documentation
 
