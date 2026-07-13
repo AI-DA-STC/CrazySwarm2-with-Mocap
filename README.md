@@ -212,12 +212,14 @@ If a drone is missing from the GUI it is `enabled: false` in `crazyflies.yaml`.
 If the mocap-Hz trace never rises off zero, mocap isn't reaching the server —
 see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#mocap-pipeline).
 
-### Preflight checks — reading the GUI
+## PreFlight Checks
 
 The **preflight GUI** is the go/no-go check before *every* flight. It shows four
 panels (kalman telemetry, pose/`stateEstimate`, connectivity, and
 mocap-vs-onboard error) plus per-drone and all-drone **Takeoff / Land / Arm /
-Disarm / E-STOP** buttons and **Record CSV**. Full walkthrough:
+Disarm / E-STOP** buttons and **Record CSV**. A drone with the **Color LED deck**
+lights **green when the server connects** and goes dark on clean shutdown — a
+lit LED is itself a "link up" preflight signal. Full walkthrough:
 [docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
 
 Clear the drone against these before arming:
