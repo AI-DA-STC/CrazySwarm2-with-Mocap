@@ -224,11 +224,13 @@ lit LED is itself a "link up" preflight signal. Full walkthrough:
 
 **Checklist — run through this before every test flight / debugging session:**
 
-- [ ] **1. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
-- [ ] **2. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
-- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body — [how to align the drone axis to the mocap axis](#hangar-axes) — and recreate the rigid body in Motive ([see what a violation looks like](#img-preflight-misaligned)).
+- [ ] **1. Check `crazyflies.yaml`** — in `crazyflie/config/crazyflies.yaml`, the drones you intend to fly are listed under `robots:` with `enabled: true` and shelf drones set to `enabled: false` — the server and preflight GUI only pick up enabled drones ([see example](#img-drone-yaml)). In the same file, check the `all: firmware_logging:` block if you need to track more data: right now only the `kalman_preflight` custom topic is active (plus the default `pose`/`status` topics); extra `custom_topics` can be un-commented/added, but each log block is limited to 26 bytes of variables ([see logging config](#img-logging-yaml)).
+- [ ] **2. Check `motion_capture.yaml`** — in `crazyflie/config/motion_capture.yaml`, `hostname` is the IP of the PC running Motive (currently `192.168.8.61`), `topics.frame_id` is `world`, `topics.tf.child_frame_id` is `{}_mocap`, and the Hz rate under `topics.poses.qos.deadline` **tallies with the camera frame rate set in OptiTrack's Motive software** — if Motive streams at a different Hz than the yaml expects, the deadline QoS flags the stream as unhealthy ([see mocap config](#img-mocap-yaml)).
+- [ ] **3. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
+- [ ] **4. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
+- [ ] **5. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body — [how to align the drone axis to the mocap axis](#hangar-axes) — and recreate the rigid body in Motive ([see what a violation looks like](#img-preflight-misaligned)).
   > **Good practice:** each time a human enters the mocap zone, reset the rigid body in Motive — bumped markers or an occluded view can silently shift the body's orientation.
-- [ ] **4. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
+- [ ] **6. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
 
 <a id="hangar-axes"></a>
 
@@ -273,6 +275,35 @@ it is before you arm anything. Short demo:
      (pencil ✏️ → drag the file into the text area). GitHub uploads it and inserts
      a https://github.com/user-attachments/assets/<id> URL; paste that URL on its
      own line here and delete the GIF above if you prefer. -->
+
+### Config files at a glance
+
+The three config screenshots the checklist links to — what "correct" looks like
+before you launch.
+
+<a id="img-drone-yaml"></a>
+
+*`crazyflies.yaml` — the `robots:` section. Each drone has its own block with a
+per-drone `enabled: true/false` flag; only enabled drones are picked up by the
+server and the preflight GUI:*
+
+![crazyflies.yaml robots section — per-drone blocks with enabled true/false flags, URI and initial position](Pics/crazyswarm_drone_yaml.png)
+
+<a id="img-logging-yaml"></a>
+
+*`crazyflies.yaml` — the `all: firmware_logging:` block. `kalman_preflight` is the
+active custom topic; the other `custom_topics` sit commented out, ready to enable
+(each log block is capped at 26 bytes of variables):*
+
+![crazyflies.yaml firmware_logging block — kalman_preflight custom topic enabled, other custom topics commented out ready to enable](Pics/crazyswarm_logs_yaml.png)
+
+<a id="img-mocap-yaml"></a>
+
+*`motion_capture.yaml` — `hostname` (Motive PC IP), `topics.frame_id` (`world`),
+`topics.tf.child_frame_id` (`{}_mocap`) and the poses QoS `deadline` Hz, which
+must match the camera frame rate set in Motive:*
+
+![motion_capture.yaml — hostname set to the Motive PC IP, frame_id world, child_frame_id {}_mocap, and the poses QoS deadline rate that must match Motive's camera frame rate](Pics/motion_capture_yaml.png)
 
 ### Reading the GUI
 
