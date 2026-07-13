@@ -872,7 +872,11 @@ void Crazyflie::requestMemoryToc()
   crtpMemoryGetNumberRequest req;
   m_connection.send(req);
   using res = crtpMemoryGetNumberResponse;
-  auto p = waitForResponse(&res::valid);
+  auto p = waitForResponse(&res::valid, 500 /*ms*/, 3 /*tries*/);
+  if (!p) {
+    m_logger.warning("requestMemoryToc: timeout waiting for number of memories; skipping memory TOC.");
+    return;
+  }
   uint8_t numberOfMemories = res::numberOfMemories(p);
 
   m_logger.info("Memories: " + std::to_string(numberOfMemories));
@@ -891,7 +895,17 @@ void Crazyflie::requestMemoryToc()
   for (uint8_t i = 0; i < numberOfMemories; ++i) {
 #endif
     using res = crtpMemoryGetInfoResponse;
-    auto p = waitForResponse(&res::valid);
+    auto p = waitForResponse(&res::valid, 500 /*ms*/, 3 /*tries*/);
+    if (!p) {
+      m_logger.warning("requestMemoryToc: timeout waiting for info of memory "
+                       + std::to_string(i) + "; skipping it.");
+      MemoryTocEntry& entry = m_memoryTocEntries[i];
+      entry.id = i;
+      entry.type = (MemoryType)0;  // unresolved placeholder
+      entry.size = 0;
+      entry.addr = 0;
+      continue;   // move on to the next memory instead of hanging forever
+    }
 
     MemoryTocEntry& entry = m_memoryTocEntries[i];
     entry.id = i;
@@ -983,6 +997,31 @@ bitcraze::crazyflieLinkCpp::Packet Crazyflie::waitForResponse(
       return p;
     }
   }
+}
+
+bitcraze::crazyflieLinkCpp::Packet Crazyflie::waitForResponse(
+    std::function<bool(const bitcraze::crazyflieLinkCpp::Packet &)> condition,
+    unsigned int timeout_ms,
+    size_t numTries)
+{
+  // Overall deadline of timeout_ms * numTries. A per-recv try-counter alone is
+  // not enough: on a busy link (log/console traffic) recv() almost always
+  // returns SOME packet, so counting only empty recvs never decrements and the
+  // wait degenerates back to unbounded while the awaited response never comes.
+  const auto deadline = std::chrono::steady_clock::now() +
+      std::chrono::milliseconds(timeout_ms * numTries);
+  while (std::chrono::steady_clock::now() < deadline) {
+    // timeout_ms > 0 makes recv() return after the timeout (0 would block forever).
+    auto p = m_connection.recv(timeout_ms);
+    if (!p) {
+      continue;
+    }
+    processPacket(p);
+    if (condition(p)) {
+      return p;
+    }
+  }
+  return bitcraze::crazyflieLinkCpp::Packet();  // invalid packet signals timeout
 }
 
 void Crazyflie::processPacket(const bitcraze::crazyflieLinkCpp::Packet& p)

@@ -100,6 +100,7 @@ import argparse
 import csv
 import math
 import os
+import signal
 import tempfile
 import threading
 import time
@@ -1188,6 +1189,18 @@ def main():
         assert xlabel_bb.y0 >= row_bb.y1, (xlabel_bb, row_bb)
         # flush so the OK line survives even a watchdog force-exit
         print('selftest OK', flush=True)
+
+    # Under `ros2 launch`, Ctrl-C delivers SIGINT to this process while the Tk
+    # mainloop is running; Tk swallows the resulting KeyboardInterrupt inside
+    # its callbacks and the window never closes (launch then escalates to
+    # SIGKILL). Close all figures instead: plt.show() returns and the finally
+    # block runs the normal teardown. Signal handlers run on the main thread,
+    # which is also the Tk thread, so plt.close() is safe here.
+    def _close_on_signal(_signum, _frame):
+        plt.close('all')
+
+    signal.signal(signal.SIGINT, _close_on_signal)
+    signal.signal(signal.SIGTERM, _close_on_signal)
 
     try:
         if args.selftest:

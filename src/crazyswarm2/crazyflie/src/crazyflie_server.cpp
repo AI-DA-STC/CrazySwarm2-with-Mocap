@@ -377,6 +377,22 @@ public:
         std::string paramName = name + ".params." + std::regex_replace(i.first, std::regex("\\."), ".");
         change_parameter(rclcpp::Parameter(paramName, i.second));
       }
+
+      // Light up the bottom Color LED deck on connect, if the deck is present.
+      // colorLedBot.wrgb8888 is a uint32 packed as 0xWWRRGGBB (white/red/green/blue).
+      // 0x0000FF00 == full-brightness green. brightCorr defaults to 1 in firmware.
+      // Guarded on the TOC entry so a drone without the deck is silently skipped
+      // (getParamTocEntry returns nullptr rather than throwing).
+      {
+        const uint32_t kConnectLedColor = 0x0000FF00;  // green; edit to taste
+        auto ledEntry = cf_.getParamTocEntry("colorLedBot", "wrgb8888");
+        if (ledEntry) {
+          cf_.setParam<uint32_t>(ledEntry->id, kConnectLedColor);
+          RCLCPP_INFO(logger_, "[%s] Color LED deck: set colorLedBot.wrgb8888 to 0x%08X on connect", name_.c_str(), kConnectLedColor);
+        } else {
+          RCLCPP_INFO(logger_, "[%s] No Color LED deck detected (colorLedBot.wrgb8888 absent); skipping LED set", name_.c_str());
+        }
+      }
     }
 
     // Reference Frame
@@ -554,6 +570,39 @@ public:
 
     RCLCPP_INFO(logger_, "[%s] Requesting memories...", name_.c_str());
     cf_.requestMemoryToc();
+  }
+
+  ~CrazyflieROS()
+  {
+    shutting_down_ = true;
+    // Connection indicator: turn the Color LED deck off on clean disconnect
+    // (best effort - on a hard link loss there is no link left to command).
+    // setParam only ENQUEUES the packet; destroying cf_ closes the connection
+    // and drops the send queue (Connection::close -> removeConnection), so we
+    // must wait for the radio ack before returning. Bounded at 500 ms so a
+    // dead link can never wedge shutdown.
+    try {
+      auto ledEntry = cf_.getParamTocEntry("colorLedBot", "wrgb8888");
+      if (ledEntry) {
+        const size_t acksBefore = cf_.connectionStats().ack_count;
+        cf_.setParam<uint32_t>(ledEntry->id, 0x00000000);
+        const auto deadline =
+          std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+        while (cf_.connectionStats().ack_count <= acksBefore &&
+               std::chrono::steady_clock::now() < deadline) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        if (cf_.connectionStats().ack_count > acksBefore) {
+          // small grace so the radio finishes the exchange for our packet
+          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          fprintf(stderr, "[%s] Color LED deck: off-command acked on disconnect\n", name_.c_str());
+        } else {
+          fprintf(stderr, "[%s] Color LED deck: off-command NOT acked (link down?); LED state unknown\n", name_.c_str());
+        }
+      }
+    } catch (...) {
+      // link may already be gone; LED state is then unknowable - ignore
+    }
   }
 
   void spin_once()
@@ -828,6 +877,7 @@ private:
   }
 
   void on_logging_pose(uint32_t time_in_ms, const logPose* data) {
+    if (shutting_down_) return;  // publishers may already be destroyed during teardown
     if (publisher_pose_) {
       geometry_msgs::msg::PoseStamped msg;
       msg.header.stamp = node_->get_clock()->now();
@@ -862,6 +912,7 @@ private:
   }
 
   void on_logging_scan(uint32_t time_in_ms, const logScan* data) {
+    if (shutting_down_) return;  // publishers may already be destroyed during teardown
     if (publisher_scan_) {
       
       const float max_range = 3.49;
@@ -892,6 +943,7 @@ private:
   }
 
   void on_logging_odom(uint32_t time_in_ms, const logOdom* data) {
+    if (shutting_down_) return;  // publishers may already be destroyed during teardown
     if (publisher_odom_) {
       nav_msgs::msg::Odometry msg;
       msg.header.stamp = node_->get_clock()->now();
@@ -920,6 +972,7 @@ private:
   }
 
   void on_logging_status(uint32_t time_in_ms, const logStatus* data) {
+    if (shutting_down_) return;  // publishers may already be destroyed during teardown
     if (publisher_status_) {
       
       crazyflie_interfaces::msg::Status msg;
@@ -996,6 +1049,7 @@ private:
   }
 
   void on_logging_custom(uint32_t time_in_ms, const std::vector<float>* values, void* userData) {
+    if (shutting_down_) return;  // publishers may already be destroyed during teardown
 
     auto pub = reinterpret_cast<rclcpp::Publisher<crazyflie_interfaces::msg::LogDataGeneric>::SharedPtr*>(userData);
 
@@ -1056,6 +1110,9 @@ private:
 private:
   rclcpp::Logger logger_;
   CrazyflieLogger cf_logger_;
+  // set at destructor entry: log-data packets drained during cf_ teardown must
+  // not be published - their ROS publishers are already destroyed (segfault)
+  std::atomic<bool> shutting_down_{false};
 
   Crazyflie cf_;
   std::string message_buffer_;

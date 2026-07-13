@@ -391,6 +391,15 @@ private:
   bitcraze::crazyflieLinkCpp::Packet waitForResponse(
       std::function<bool(const bitcraze::crazyflieLinkCpp::Packet&)> condition);
 
+  // Bounded-timeout overload. Returns an invalid Packet (valid()==false) if no
+  // matching response arrives within numTries intervals of timeout_ms each.
+  // Only genuine per-interval timeouts consume a try; unrelated packets are
+  // still drained via processPacket() without counting against the budget.
+  bitcraze::crazyflieLinkCpp::Packet waitForResponse(
+      std::function<bool(const bitcraze::crazyflieLinkCpp::Packet&)> condition,
+      unsigned int timeout_ms,
+      size_t numTries);
+
   void processPacket(const bitcraze::crazyflieLinkCpp::Packet& p);
 
 #if 0
@@ -552,7 +561,10 @@ public:
     crtpLogStopRequest request(m_id);
     m_cf->m_connection.send(request);
     using res = crtpLogControlResponse;
-    m_cf->waitForResponse(&res::valid);
+    // Bounded wait: stop() runs from destructors; an unbounded wait on a lost
+    // ack wedges teardown, and draining packets meanwhile fires data callbacks
+    // into objects that may already be destroyed.
+    m_cf->waitForResponse(&res::valid, 500 /*ms*/, 3 /*tries*/);
     /* intentionally no checking of result */
   }
 
@@ -661,7 +673,10 @@ public:
     crtpLogStopRequest request(m_id);
     m_cf->m_connection.send(request);
     using res = crtpLogControlResponse;
-    m_cf->waitForResponse(&res::valid);
+    // Bounded wait: stop() runs from destructors; an unbounded wait on a lost
+    // ack wedges teardown, and draining packets meanwhile fires data callbacks
+    // into objects that may already be destroyed.
+    m_cf->waitForResponse(&res::valid, 500 /*ms*/, 3 /*tries*/);
     /* intentionally no checking of result */
   }
 

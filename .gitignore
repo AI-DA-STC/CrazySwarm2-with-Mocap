@@ -14,6 +14,10 @@ __pycache__/
 *.egg-info/
 .venv/
 
+# ---- media source files (keep the small web-friendly derivatives, not the raw exports) ----
+# The README embeds the compressed video/*.mp4; the large raw .mov exports stay local.
+video/*.mov
+
 # ---- editors / OS ----
 .vscode/
 .idea/

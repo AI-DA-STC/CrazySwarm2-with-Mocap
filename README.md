@@ -240,18 +240,18 @@ Clear the drone against these before arming:
 `err.yaw` ≈ a couple of degrees. Battery here is 3.71 V (orange) — flyable, but
 plan to land and swap soon.
 
-![Healthy preflight with a Flow deck fitted — steady traces, mocap 50 Hz, small err.yaw](Pics/healthy_preflight_with_flowdeck.png)
+![Healthy preflight with a Flow deck fitted — steady traces, mocap 50 Hz, small err.yaw](Pics/preflight-healthy-flowdeck.png)
 
 **Healthy preflight (no Flow deck).** With no Flow deck the flow/range channels
 (`motion.deltaX/Y`, `range.zrange`, `stateEstimateZ.vx/vy`) sit flat or noisy —
 **this is expected, not a fault.** Judge such a drone on mocap, battery and yaw.
 
-![Healthy preflight without a Flow deck — flow/range channels idle, which is normal](Pics/healthy_readings_without_flowdeck.png)
+![Healthy preflight without a Flow deck — flow/range channels idle, which is normal](Pics/preflight-healthy-no-flowdeck.png)
 
 **Warning-band battery.** 3.72 V shows orange: still flyable, but you're near the
 warning threshold — do a short flight and recharge.
 
-![Preflight GUI showing an orange warning-band battery at 3.72 V](Pics/medium_battery.png)
+![Preflight GUI showing an orange warning-band battery at 3.72 V](Pics/preflight-battery-warning.png)
 
 **NO-FLY — orientation misaligned + low battery.** The red banner reads
 *"MOCAP ORIENTATION MISALIGNED: cf2 (yaw 18°)"*, `err.yaw` (dashed) climbs toward
@@ -260,7 +260,7 @@ warning threshold — do a short flight and recharge.
 forward axis on global **+X** ([docs/MOCAP.md](docs/MOCAP.md#2-defining-rigid-bodies))
 and charge the pack.
 
-![NO-FLY example — red orientation-misalignment banner, err.yaw ~15°, rotated RViz axes, red 3.64 V battery](Pics/orientation_error_and_low_battery.png)
+![NO-FLY example — red orientation-misalignment banner, err.yaw ~15°, rotated RViz axes, red 3.64 V battery](Pics/preflight-nofly-misaligned.png)
 
 ### What a flight looks like
 
@@ -270,10 +270,24 @@ it lands. **`mocap [Hz]` should stay pinned at ~50 Hz the whole time**; a drop
 mid-flight is the mocap failure that triggers an emergency land. Note the battery
 sags under load (3.68 V, red, after the flight below):
 
-![Preflight GUI during/after a flight with a Flow deck — motion in the telemetry panels, mocap held at 50 Hz, battery drained to 3.68 V](Pics/healthy_after_flying_w_Flowdeck.png)
+![Preflight GUI during/after a flight with a Flow deck — motion in the telemetry panels, mocap held at 50 Hz, battery drained to 3.68 V](Pics/preflight-during-flight.png)
 
 Hover/landing height and durations are set in `hello_world.py` — see
 [docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
+
+### Emergency stop (E-STOP) demo
+
+Every drone has an **E-STOP** button in the preflight GUI (and the `e` key) that
+cuts motors instantly; **E-STOP (all)** kills the whole swarm at once. Short demo:
+
+<!-- INLINE PLAYER: to embed a real player, drag video/crazyfly_estop_draft1.mp4
+     into the GitHub web editor for this README (the pencil ✏️ → drag the file into
+     the text area) or into any issue comment. GitHub uploads it and inserts a
+     https://github.com/user-attachments/assets/<id> URL. Paste that URL on its own
+     line here (it renders as an inline player) and you can delete the fallback link
+     below. -->
+
+▶️ [Watch the e-stop demo](video/crazyfly_estop_draft1.mp4) (click to play/download)
 
 ## Documentation
 
