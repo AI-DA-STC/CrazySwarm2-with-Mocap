@@ -248,9 +248,11 @@ frame. How to do it:
    while it sits like that. Done right, the dashed `err.yaw` trace sits at ~0°
    and the axes overlap in RViz.
 
-*Crazyflie body frame (front = notch between M1/M4; X forward, Y left, Z up):*
+*Crazyflie body frame — annotated on the real airframe (left: body axes
+x̂_B/ŷ_B/ẑ_B, motor thrusts F₁–F₄ and spin directions, world frame in the corner)
+and as a diagram with the roll/pitch/yaw rotations (right):*
 
-<img src="Pics/crazyfly_axis_1.png" alt="Crazyflie 2.x top view: Front direction arrow between motors M1 and M4" width="49%"> <img src="Pics/crazyfly_axis_2.png" alt="Crazyflie body frame diagram: X forward (roll), Y left (pitch), Z up (yaw)" width="49%">
+<img src="Pics/crazyfly_axis_1.png" alt="Real Crazyflie with annotated body frame axes, motor thrust vectors F1-F4, rotor spin directions, and the world frame in the corner" width="49%"> <img src="Pics/crazyfly_axis_2.png" alt="Crazyflie body frame diagram: X forward (roll), Y left (pitch), Z up (yaw)" width="49%">
 
 *Hangar mocap frame (+X across the floor, Z up; origin cross close-up on the right):*
 
