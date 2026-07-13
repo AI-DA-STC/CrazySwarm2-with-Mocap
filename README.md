@@ -226,9 +226,18 @@ lit LED is itself a "link up" preflight signal. Full walkthrough:
 
 - [ ] **1. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
 - [ ] **2. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
-- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X) and recreate the rigid body in Motive ([see what a violation looks like](#img-preflight-misaligned)).
+- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X — [see where +X points in the hangar](#hangar-axes)) and recreate the rigid body in Motive ([see what a violation looks like](#img-preflight-misaligned)).
   > **Good practice:** each time a human enters the mocap zone, reset the rigid body in Motive — bumped markers or an occluded view can silently shift the body's orientation.
 - [ ] **4. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
+
+<a id="hangar-axes"></a>
+
+**Hangar axis reference.** The mocap global frame in our hangar (Z-up): **+X** runs
+across the floor as annotated, **+Y** along the floor to its left, **+Z** up. Place
+the drone's forward axis along **+X** when creating its rigid body. The close-up
+shows the origin cross on the carpet — z points up out of the floor.
+
+<img src="Pics/mocap_axis_1.png" alt="Hangar capture volume with the mocap global axes annotated: x-axis red across the floor, y-axis green along the floor, z-axis blue pointing up" width="49%"> <img src="Pics/mocap_axis_2.png" alt="Top-down close-up of the floor origin cross: x-axis red, y-axis green, z-axis up out of the floor" width="49%">
 
 ### Emergency stop (E-STOP) demo
 
