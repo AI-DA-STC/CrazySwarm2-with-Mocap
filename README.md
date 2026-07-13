@@ -226,7 +226,8 @@ lit LED is itself a "link up" preflight signal. Full walkthrough:
 
 - [ ] **1. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
 - [ ] **2. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
-- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X) and recreate/verify the body ([see what a violation looks like](#img-preflight-misaligned)).
+- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X) and recreate the rigid body in Motive ([see what a violation looks like](#img-preflight-misaligned)).
+  > **Good practice:** each time a human enters the mocap zone, reset the rigid body in Motive — bumped markers or an occluded view can silently shift the body's orientation.
 - [ ] **4. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
 
 ### Emergency stop (E-STOP) demo
