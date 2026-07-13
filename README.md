@@ -229,6 +229,24 @@ lit LED is itself a "link up" preflight signal. Full walkthrough:
 - [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X) and recreate/verify the body ([see what a violation looks like](#img-preflight-misaligned)).
 - [ ] **4. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
 
+### Emergency stop (E-STOP) demo
+
+Every drone has an **E-STOP** button in the preflight GUI (and the `e` key) that
+cuts motors instantly; **E-STOP (all)** kills the whole swarm at once. Know where
+it is before you arm anything. Short demo:
+
+![E-STOP demo — drone motors cut instantly from the preflight GUI](video/crazyfly_estop_draft1.gif)
+
+▶️ [Full-quality video with audio](video/crazyfly_estop_draft1.mp4) (opens GitHub's player / downloads)
+
+<!-- OPTIONAL upgrade to a real inline player with audio: drag
+     video/crazyfly_estop_draft1.mp4 into the GitHub web editor for this README
+     (pencil ✏️ → drag the file into the text area). GitHub uploads it and inserts
+     a https://github.com/user-attachments/assets/<id> URL; paste that URL on its
+     own line here and delete the GIF above if you prefer. -->
+
+### Reading the GUI
+
 Clear the drone against these before arming:
 
 | Check | Where | Healthy | Go / no-go |
@@ -289,21 +307,6 @@ sags under load (3.68 V, red, after the flight below):
 
 Hover/landing height and durations are set in `hello_world.py` — see
 [docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
-
-### Emergency stop (E-STOP) demo
-
-Every drone has an **E-STOP** button in the preflight GUI (and the `e` key) that
-cuts motors instantly; **E-STOP (all)** kills the whole swarm at once. Short demo:
-
-![E-STOP demo — drone motors cut instantly from the preflight GUI](video/crazyfly_estop_draft1.gif)
-
-▶️ [Full-quality video with audio](video/crazyfly_estop_draft1.mp4) (opens GitHub's player / downloads)
-
-<!-- OPTIONAL upgrade to a real inline player with audio: drag
-     video/crazyfly_estop_draft1.mp4 into the GitHub web editor for this README
-     (pencil ✏️ → drag the file into the text area). GitHub uploads it and inserts
-     a https://github.com/user-attachments/assets/<id> URL; paste that URL on its
-     own line here and delete the GIF above if you prefer. -->
 
 
 
