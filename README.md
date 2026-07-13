@@ -222,6 +222,13 @@ lights **green when the server connects** and goes dark on clean shutdown — a
 lit LED is itself a "link up" preflight signal. Full walkthrough:
 [docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
 
+**Checklist — run through this before every test flight / debugging session:**
+
+- [ ] **1. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
+- [ ] **2. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
+- [ ] **3. No error between mocap and drone orientation** — no red misalignment banner and dashed `err.yaw` near 0°. If misaligned, position the drone in the same orientation as the mocap rigid body (forward axis on global +X) and recreate/verify the body ([see what a violation looks like](#img-preflight-misaligned)).
+- [ ] **4. Kalman estimation converging near 0 at rest** — the kalman telemetry and error traces settle near zero while the drone sits still. If not, reset the drone by replugging its battery (or press **Reset Kalman (all)** / `r` in the GUI), then re-check ([see healthy example](#img-preflight-healthy)).
+
 Clear the drone against these before arming:
 
 | Check | Where | Healthy | Go / no-go |
@@ -238,6 +245,8 @@ Clear the drone against these before arming:
 > air. The orientation error (`err.yaw`) and the banner are what catch it. Press
 > **`r`** to reset the Kalman filter (all drones); **`e`** is E-STOP.
 
+<a id="img-preflight-healthy"></a>
+
 **Healthy preflight (Flow deck fitted).** All four panels steady, `mocap ~50 Hz`,
 `err.yaw` ≈ a couple of degrees. Battery here is 3.71 V (orange) — flyable, but
 plan to land and swap soon.
@@ -250,10 +259,14 @@ plan to land and swap soon.
 
 ![Healthy preflight without a Flow deck — flow/range channels idle, which is normal](Pics/preflight-healthy-no-flowdeck.png)
 
+<a id="img-preflight-battery"></a>
+
 **Warning-band battery.** 3.72 V shows orange: still flyable, but you're near the
 warning threshold — do a short flight and recharge.
 
 ![Preflight GUI showing an orange warning-band battery at 3.72 V](Pics/preflight-battery-warning.png)
+
+<a id="img-preflight-misaligned"></a>
 
 **NO-FLY — orientation misaligned + low battery.** The red banner reads
 *"MOCAP ORIENTATION MISALIGNED: cf2 (yaw 18°)"*, `err.yaw` (dashed) climbs toward
