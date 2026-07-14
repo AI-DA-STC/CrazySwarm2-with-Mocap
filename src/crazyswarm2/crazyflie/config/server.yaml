@@ -11,7 +11,7 @@
         min_broadcast_receive_rate: 0.9 # requires status topic to be enabled
         publish_stats: false
     firmware_params:
-      query_all_values_on_connect: False
+      query_all_values_on_connect: True
     # simulation related
     sim:
       max_dt: 0 #0.1              # artificially limit the step() function (set to 0 to disable)

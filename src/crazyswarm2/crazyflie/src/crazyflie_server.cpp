@@ -378,9 +378,11 @@ public:
         change_parameter(rclcpp::Parameter(paramName, i.second));
       }
 
-      // Light up the bottom Color LED deck on connect, if the deck is present.
+      // Light the bottom Color LED deck GREEN on connect, if present, as a
+      // quick visual check that the deck + param path work at launch.
       // colorLedBot.wrgb8888 is a uint32 packed as 0xWWRRGGBB (white/red/green/blue).
-      // 0x0000FF00 == full-brightness green. brightCorr defaults to 1 in firmware.
+      // Change colours at runtime with scripts/led.sh or:
+      //   ros2 run crazyflie_examples color_led <color>
       // Guarded on the TOC entry so a drone without the deck is silently skipped
       // (getParamTocEntry returns nullptr rather than throwing).
       {
@@ -388,7 +390,7 @@ public:
         auto ledEntry = cf_.getParamTocEntry("colorLedBot", "wrgb8888");
         if (ledEntry) {
           cf_.setParam<uint32_t>(ledEntry->id, kConnectLedColor);
-          RCLCPP_INFO(logger_, "[%s] Color LED deck: set colorLedBot.wrgb8888 to 0x%08X on connect", name_.c_str(), kConnectLedColor);
+          RCLCPP_INFO(logger_, "[%s] Color LED deck: set colorLedBot.wrgb8888 to 0x%08X (green) on connect", name_.c_str(), kConnectLedColor);
         } else {
           RCLCPP_INFO(logger_, "[%s] No Color LED deck detected (colorLedBot.wrgb8888 absent); skipping LED set", name_.c_str());
         }
@@ -1303,11 +1305,19 @@ public:
     sub_poses_ = this->create_subscription<NamedPoseArray>(
       "poses", sensor_data_qos, std::bind(&CrazyflieServer::posesChanged, this, _1), sub_opt_mocap);
 
-    // support for all.params
-
-    // Create a parameter subscriber that can be used to monitor parameter changes
-    param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
-    cb_handle_ = param_subscriber_->add_parameter_event_callback(std::bind(&CrazyflieServer::on_parameter_event, this, _1));
+    // support for changing firmware params at runtime ("<cf>.params.*" and
+    // "all.params.*") via the standard set_parameters service (ros2 param set).
+    //
+    // NOTE: upstream used a ParameterEventHandler on /parameter_events here.
+    // On this rig the node's own parameter events are never delivered back to
+    // itself (same-process DDS loopback failure: events from other processes
+    // arrive, the node's own do not), so that handler never fired and runtime
+    // param changes silently never reached the drones. This on-set callback
+    // runs synchronously inside the set_parameters service call instead — no
+    // pub/sub round-trip involved. Registered at the end of construction so
+    // the startup parameter declarations do not re-push values already set.
+    on_set_parameters_handle_ = this->add_on_set_parameters_callback(
+        std::bind(&CrazyflieServer::on_set_parameters, this, _1));
 
     // topics for "all"
     subscription_cmd_full_state_ = this->create_subscription<crazyflie_interfaces::msg::FullState>("all/cmd_full_state", rclcpp::SystemDefaultsQoS(), std::bind(&CrazyflieServer::cmd_full_state_changed, this, _1), sub_opt_all_cmd);
@@ -1517,70 +1527,86 @@ private:
     }
   }
 
-  void on_parameter_event(const rcl_interfaces::msg::ParameterEvent &event)
+  // Runs synchronously inside every set_parameters service call (ros2 param
+  // set, crazyflie_py setParam, ...) and pushes "<cf>.params.*" /
+  // "all.params.*" changes to the drones over the radio. Replaces the
+  // upstream /parameter_events subscription, whose self-events never arrived
+  // (see registration site). Always returns success: the radio push is
+  // best-effort and must not reject the ROS-side parameter change.
+  rcl_interfaces::msg::SetParametersResult on_set_parameters(
+      const std::vector<rclcpp::Parameter> &params)
   {
-    if (event.node == "/crazyflie_server") {
-      auto params = param_subscriber_->get_parameters_from_event(event);
-      for (auto &p : params) {
-        size_t params_pos = p.get_name().find(".params.");
-        if (params_pos == std::string::npos) {
-          continue;
-        }
-        std::string cfname(p.get_name().begin(), p.get_name().begin() + params_pos);
-        size_t prefixsize = params_pos + 8;
-        if (cfname == "all") {
-          size_t pos = p.get_name().find(".", prefixsize);
-          std::string group(p.get_name().begin() + prefixsize, p.get_name().begin() + pos);
-          std::string name(p.get_name().begin() + pos + 1, p.get_name().end());
+    for (const auto &p : params) {
+      try {
+        apply_firmware_param(p);
+      } catch (const std::exception &e) {
+        RCLCPP_ERROR(logger_, "[all] Failed to apply param %s: %s",
+                     p.get_name().c_str(), e.what());
+      }
+    }
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+    return result;
+  }
 
-          RCLCPP_INFO(
-              logger_,
-              "[all] Update parameter \"%s.%s\" to %s",
-              group.c_str(),
-              name.c_str(),
-              p.value_to_string().c_str());
+  void apply_firmware_param(const rclcpp::Parameter &p)
+  {
+    size_t params_pos = p.get_name().find(".params.");
+    if (params_pos == std::string::npos) {
+      return;
+    }
+    std::string cfname(p.get_name().begin(), p.get_name().begin() + params_pos);
+    size_t prefixsize = params_pos + 8;
+    if (cfname == "all") {
+      size_t pos = p.get_name().find(".", prefixsize);
+      std::string group(p.get_name().begin() + prefixsize, p.get_name().begin() + pos);
+      std::string name(p.get_name().begin() + pos + 1, p.get_name().end());
 
-          Crazyflie::ParamType paramType;
-          for (auto& cf : crazyflies_) {
-            const auto entry = cf.second->paramTocEntry(group, name);
-            if (entry) {
-              switch (entry->type)
-              {
-              case Crazyflie::ParamTypeUint8:
-                broadcast_set_param<uint8_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeInt8:
-                broadcast_set_param<int8_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeUint16:
-                broadcast_set_param<uint16_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeInt16:
-                broadcast_set_param<int16_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeUint32:
-                broadcast_set_param<uint32_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeInt32:
-                broadcast_set_param<int32_t>(group, name, p.as_int());
-                break;
-              case Crazyflie::ParamTypeFloat:
-                if (p.get_type() == rclcpp::PARAMETER_INTEGER) {
-                  broadcast_set_param<float>(group, name, (float)p.as_int());
-                } else {
-                  broadcast_set_param<float>(group, name, p.as_double());
-                }
-                break;
-              }
-              break;
+      RCLCPP_INFO(
+          logger_,
+          "[all] Update parameter \"%s.%s\" to %s",
+          group.c_str(),
+          name.c_str(),
+          p.value_to_string().c_str());
+
+      for (auto& cf : crazyflies_) {
+        const auto entry = cf.second->paramTocEntry(group, name);
+        if (entry) {
+          switch (entry->type)
+          {
+          case Crazyflie::ParamTypeUint8:
+            broadcast_set_param<uint8_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeInt8:
+            broadcast_set_param<int8_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeUint16:
+            broadcast_set_param<uint16_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeInt16:
+            broadcast_set_param<int16_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeUint32:
+            broadcast_set_param<uint32_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeInt32:
+            broadcast_set_param<int32_t>(group, name, p.as_int());
+            break;
+          case Crazyflie::ParamTypeFloat:
+            if (p.get_type() == rclcpp::PARAMETER_INTEGER) {
+              broadcast_set_param<float>(group, name, (float)p.as_int());
+            } else {
+              broadcast_set_param<float>(group, name, p.as_double());
             }
+            break;
           }
-        } else {
-          auto iter = crazyflies_.find(cfname);
-          if (iter != crazyflies_.end()) {
-            iter->second->change_parameter(p);
-          }
+          break;
         }
+      }
+    } else {
+      auto iter = crazyflies_.find(cfname);
+      if (iter != crazyflies_.end()) {
+        iter->second->change_parameter(p);
       }
     }
   }
@@ -1699,8 +1725,7 @@ private:
     int broadcasts_delay_between_repeats_ms_;
 
     // parameter updates
-    std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
-    std::shared_ptr<rclcpp::ParameterEventCallbackHandle> cb_handle_;
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr on_set_parameters_handle_;
 
     // sanity checks
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
