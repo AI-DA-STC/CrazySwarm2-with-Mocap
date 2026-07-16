@@ -13,19 +13,18 @@ crazyflie_server (i.e. ``ros2 launch crazyflie launch.py`` running).
 
 Two ways to use it:
 
-  # one-shot: set a color and exit
+  # one-shot: set a color (by name or number key) and exit
   ros2 run crazyflie_examples color_led Yellow
+  ros2 run crazyflie_examples color_led 3
   ros2 run crazyflie_examples color_led Black
 
-  # interactive: launch once, then type color names repeatedly
+  # interactive: launch once, then press number keys (no Enter needed)
   ros2 run crazyflie_examples color_led
-  color> Purple
-  color> Black
-  color> quit
 
-Valid inputs (case-insensitive): Red, Yellow, Green, Blue, Purple, Pink,
-White, Black (= off).  In the interactive prompt, 'q'/'quit'/'exit' or
-Ctrl-D leaves it.
+Number keys: 0=off(black)  1=green  2=red  3=yellow  4=blue  5=purple
+9=white.  Color names (case-insensitive) also work as one-shot args:
+Red, Yellow, Green, Blue, Purple, White, Black (= off).  In the
+interactive mode, 'q' or Ctrl-C leaves it.
 
 Hardware only: the sim backend declares no firmware params, so this has no
 visible effect with backend:=sim.
@@ -56,10 +55,22 @@ COLORS = {
     'green':  wrgb(0, 255, 0),
     'blue':   wrgb(0, 0, 255),
     'purple': wrgb(148, 0, 211),
-    'pink':   wrgb(255, 105, 180),
     'white':  wrgb(0, 0, 0, w=255),  # dedicated W channel (RGB mix looks purplish)
     'black':  0,                     # LED off
 }
+
+# Number keys -> color names (0 = off). Keys 6-8 intentionally unassigned.
+KEYMAP = {
+    '0': 'black',
+    '1': 'green',
+    '2': 'red',
+    '3': 'yellow',
+    '4': 'blue',
+    '5': 'purple',
+    '9': 'white',
+}
+
+KEY_HELP = '0=off(black)  1=green  2=red  3=yellow  4=blue  5=purple  9=white'
 
 
 class LedController(Node):
@@ -111,19 +122,61 @@ class LedController(Node):
 
 
 def apply_named(ctl, name):
-    """Look up a color name and set it. Returns True if applied."""
-    value = COLORS.get(name.strip().lower())
+    """Look up a color name or number key and set it. Returns True if applied."""
+    token = name.strip().lower()
+    token = KEYMAP.get(token, token)  # number key -> color name
+    value = COLORS.get(token)
     if value is None:
         print(f"unknown color '{name}'. "
-              f"choose from: {', '.join(sorted(COLORS))}")
+              f"choose from: {', '.join(sorted(COLORS))} (or keys: {KEY_HELP})")
         return False
     result = ctl.set_color(value)
     if result is None:
         print('  set_parameters call timed out (server still there?)')
         return False
-    print(f'  -> {name.strip().lower():6s} (0x{value:08X}) '
+    print(f'  -> {token:6s} (0x{value:08X}) '
           f'on {len(ctl.led_params)} drone(s)')
     return True
+
+
+def interactive_loop(ctl):
+    """One keypress = one color change (no Enter). 'q' or Ctrl-C quits."""
+    print('Manual Color LED control - press a number key:')
+    print(f'  {KEY_HELP}   q=quit')
+
+    if not sys.stdin.isatty():
+        # Piped stdin (no terminal): fall back to one token per line.
+        for line in sys.stdin:
+            token = line.strip().lower()
+            if token in ('q', 'quit', 'exit'):
+                break
+            if token:
+                apply_named(ctl, token)
+        return
+
+    import termios
+    import tty
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        while True:
+            # cbreak only while waiting for the key, so apply_named prints
+            # normally (cooked mode) and Ctrl-C still raises KeyboardInterrupt.
+            tty.setcbreak(fd)
+            try:
+                key = sys.stdin.read(1)
+            except KeyboardInterrupt:
+                break
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            if key in ('', 'q', 'Q', '\x03', '\x04'):
+                break
+            if key in KEYMAP:
+                apply_named(ctl, key)
+            # anything else (incl. escape sequences) is ignored
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        print()
 
 
 def main():
@@ -144,24 +197,14 @@ def main():
     rc = 0
     try:
         if args:
-            # One-shot: a color name was passed on the command line.
+            # One-shot: a color name or number key was passed on the command line.
             rc = 0 if apply_named(ctl, args[0]) else 1
         else:
-            # Interactive: prompt for colors until the user quits.
-            print('Manual Color LED control. '
-                  f'Colors: {", ".join(sorted(COLORS))}. '
-                  "Type 'quit' to exit.")
-            while True:
-                try:
-                    name = input('color> ')
-                except (EOFError, KeyboardInterrupt):
-                    print()
-                    break
-                if name.strip().lower() in ('q', 'quit', 'exit'):
-                    break
-                if not name.strip():
-                    continue
-                apply_named(ctl, name)
+            # Interactive: number-key control until the user quits.
+            try:
+                interactive_loop(ctl)
+            except (EOFError, KeyboardInterrupt):
+                print()
     finally:
         ctl.destroy_node()
         rclpy.shutdown()

@@ -20,8 +20,13 @@
 #
 # USAGE:
 #   ./scripts/led.sh Yellow     # one-shot: set color and exit
-#   ./scripts/led.sh Black      # LED off
-#   ./scripts/led.sh            # interactive loop (prompt 'color> ', q to quit)
+#   ./scripts/led.sh 3          # same, by number key
+#   ./scripts/led.sh Black      # LED off (same as 0)
+#   ./scripts/led.sh            # interactive: press a number key to switch,
+#                               # no Enter needed; q to quit
+#
+# NUMBER KEYS:
+#   0=off(black)  1=green  2=red  3=yellow  4=blue  5=purple  9=white
 
 set -u
 
@@ -40,14 +45,28 @@ color_value() {
         green)  echo 65280 ;;      # 0x00FF00
         blue)   echo 255 ;;        # 0x0000FF
         purple) echo 9699539 ;;    # 0x9400D3
-        pink)   echo 16738740 ;;   # 0xFF69B4
         white)  echo 4278190080 ;; # 0xFF000000 dedicated W channel (RGB mix looks purplish)
         black)  echo 0 ;;          # 0x000000 (LED off)
         *)      return 1 ;;
     esac
 }
 
-VALID_COLORS='red yellow green blue purple pink white black'
+VALID_COLORS='red yellow green blue purple white black'
+KEY_HELP='0=off(black)  1=green  2=red  3=yellow  4=blue  5=purple  9=white'
+
+# Number keys -> color names (0 = off).
+key_to_color() {
+    case "$1" in
+        0) echo black ;;
+        1) echo green ;;
+        2) echo red ;;
+        3) echo yellow ;;
+        4) echo blue ;;
+        5) echo purple ;;
+        9) echo white ;;
+        *) return 1 ;;
+    esac
+}
 
 # Discover every drone's LED param from the live server. Trims whitespace that
 # `ros2 param list` indents its entries with.
@@ -64,8 +83,18 @@ apply_named() {
     local name value
     name=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
 
+    # Accept a number key as well as a color name.
+    case "$name" in
+        [0-9])
+            if ! name=$(key_to_color "$name"); then
+                echo "no color on key '$raw'. keys: $KEY_HELP"
+                return 1
+            fi
+            ;;
+    esac
+
     if ! value=$(color_value "$name"); then
-        echo "unknown color '$raw'. choose from: $VALID_COLORS"
+        echo "unknown color '$raw'. choose from: $VALID_COLORS (or keys: $KEY_HELP)"
         return 1
     fi
 
@@ -103,20 +132,19 @@ main() {
         exit $?
     fi
 
-    # Interactive mode.
-    echo "Manual Color LED control. Colors: $VALID_COLORS"
-    echo "Type a color name; 'q', 'quit', 'exit' or Ctrl-D to leave."
+    # Interactive mode: one keypress = one color change, no Enter needed.
+    echo "Manual Color LED control - press a number key:"
+    echo "  $KEY_HELP   q=quit"
+    local key
     while true; do
-        if ! read -r -p 'color> ' line; then
+        if ! read -rsn1 key; then
             echo
             break
         fi
-        local trimmed
-        trimmed=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
-        case "$trimmed" in
-            q|quit|exit) break ;;
-            '')          continue ;;
-            *)           apply_named "$line" ;;
+        case "$key" in
+            q|Q)   break ;;
+            [0-9]) apply_named "$key" ;;
+            *)     : ;;  # ignore everything else (incl. escape sequences)
         esac
     done
 }
