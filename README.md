@@ -114,6 +114,22 @@ Re-run any step on its own later:
 LOW_MEM=1 ./scripts/build.sh     # serial build on low-RAM machines
 ```
 
+> **⚠️ Install these too — `install_deps.sh` does not cover them yet.** The
+> default launch and the Python API need a few extra packages:
+>
+> ```bash
+> sudo apt install -y python3-matplotlib python3-tk python3-scipy ros-$ROS_DISTRO-joy
+> pip3 install --user rowan "numpy<2"
+> ```
+>
+> Why each one: `python3-matplotlib` + `python3-tk` → the **preflight GUI**
+> (started by default; without them it dies or exits silently and no window
+> appears), `ros-$ROS_DISTRO-joy` → the teleop `joy_node` (also default-on),
+> `rowan` + `python3-scipy` → the `crazyflie_py` Python API (`hello_world` and
+> every flight script). The `"numpy<2"` pin matters: a user-site NumPy 2.x
+> (pulled in by e.g. `pip3 install --user cflib`) crashes the apt matplotlib
+> with *"module compiled using NumPy 1.x cannot be run in NumPy 2.x"*.
+
 ### Step 3 — Crazyradio USB permissions  *(manual; hardware only)*
 
 Skip this if you only run the simulator. It lets your user talk to the Crazyradio
