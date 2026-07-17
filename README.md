@@ -235,7 +235,9 @@ panels (kalman telemetry, pose/`stateEstimate`, connectivity, and
 mocap-vs-onboard error) plus per-drone and all-drone **Takeoff / Land / Arm /
 Disarm / E-STOP** buttons and **Record CSV**. A drone with the **Color LED deck**
 lights **green when the server connects** and goes dark on clean shutdown — a
-lit LED is itself a "link up" preflight signal. Full walkthrough:
+lit LED is itself a "link up" preflight signal. The deck also turns **red while
+a script is flying the drone** and can be set to any color manually — see
+[Color LED control](#color-led-control). Full walkthrough:
 [docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
 
 **Checklist — run through this before every test flight / debugging session:**
@@ -386,9 +388,46 @@ Hover/landing height and durations are set in `hello_world.py` — see
 
 
 
+## Color LED control
+
+Drones carrying the bottom-mounted **Color LED deck** (`bcColorLedBot`) double
+as swarm status lights. Two things happen automatically:
+
+- **Green on connect** — the server lights the deck full green when a drone
+  connects (and it goes dark on clean shutdown).
+- **Red while a script runs** — any `crazyflie_py` script (`Crazyswarm()`)
+  turns the deck **red** for its lifetime and restores **green** on exit —
+  normal exit, exception, or Ctrl-C alike.
+
+Colors can also be set manually while the server is running, by name or by
+number key (same mapping in every tool):
+
+| Key | `0` | `1` | `2` | `3` | `4` | `5` | `9` |
+|-------|-----|-----|-----|-----|-----|-----|-----|
+| Color | off | green | red | yellow | blue | purple | white |
+
+```bash
+# easiest — bash wrapper over `ros2 param set` (most reliable path)
+./scripts/led.sh yellow      # one-shot, by name (case-insensitive)
+./scripts/led.sh 3           # one-shot, by number key (= yellow)
+./scripts/led.sh             # interactive: press 0-5/9 to switch, q quits
+
+# same thing as a ROS 2 node (workspace built + sourced)
+ros2 run crazyflie_examples color_led yellow
+ros2 run crazyflie_examples color_led        # interactive
+
+# standalone cflib demo — STOP the server first (they can't share the radio)
+python3 scripts/color_led_cflib.py           # fixed color sequence; URI edited in-file
+```
+
+All paths set the firmware parameter `colorLedBot.wrgb8888` (`0xWWRRGGBB`, with
+a dedicated white channel). **Hardware only** — no effect with `backend:=sim`.
+Full detail (raw `ros2 param set` form, decimal color values, prerequisites):
+[docs/RUNNING.md §G](docs/RUNNING.md#g-color-led-control-color-led-deck).
+
 ## Documentation
 
-- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging
+- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging; Color LED control
 - [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failures
 
@@ -399,7 +438,7 @@ commit — a fresh clone then reproduces your exact rig. Key files:
 
 - `src/crazyswarm2/crazyflie/config/crazyflies.yaml` — drone list, URIs, types, firmware logging.
 - `src/crazyswarm2/crazyflie/config/motion_capture.yaml` — Motive hostname/IP, markers, QoS.
-- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller.
+- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
 - `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
 - `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
   and **preflight GUI** nodes; `rviz` default `True`, `gui` default `False`).

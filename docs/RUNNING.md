@@ -319,6 +319,87 @@ predefined names the server understands.
 > Tip: enable high-rate blocks (e.g. 50 Hz attitude/kalman) only while actively
 > debugging, then comment them out again for normal flight to free up the radio.
 
+## G. Color LED control (Color LED deck)
+
+Applies to drones carrying the bottom-mounted **Color LED deck**
+(`bcColorLedBot`; the firmware must expose the `colorLedBot` params). Everything
+below drives a single firmware parameter — `colorLedBot.wrgb8888`, a uint32
+packed as `0xWWRRGGBB`. White uses the dedicated **W** channel (`0xFF000000`);
+an RGB-mixed white looks purplish. **Hardware only** — the `sim` backend
+declares no firmware params, so LED commands have no effect there.
+
+### Automatic status behavior (no command needed)
+
+- **Green on connect** — `crazyflie_server` sets full green when a drone
+  connects; a drone without the deck just logs
+  `No Color LED deck detected — skipping LED set`.
+- **Red while a script runs** — `crazyflie_py`'s `Crazyswarm()` sets the deck
+  red at startup and restores green on exit via an `atexit` hook, so it
+  recovers on normal exit, exceptions, and Ctrl-C.
+
+### Manual control (server must be running)
+
+Both tools accept a color name (case-insensitive) or a number key, and share
+the same mapping:
+
+| Key | Color | Hex (WRGB) | Decimal |
+|-----|-------|-----------|---------|
+| `0` | black (off) | `0x000000` | `0` |
+| `1` | green | `0x00FF00` | `65280` |
+| `2` | red | `0xFF0000` | `16711680` |
+| `3` | yellow | `0xFFFF00` | `16776960` |
+| `4` | blue | `0x0000FF` | `255` |
+| `5` | purple | `0x9400D3` | `9699539` |
+| `9` | white | `0xFF000000` | `4278190080` |
+
+**`scripts/led.sh` — recommended.** Wraps the `ros2 param set` CLI; the
+long-running ROS 2 CLI daemon keeps the graph warm, which makes this the most
+reliable path. It re-discovers every connected drone's LED param on each color
+change, so all drones with the deck switch together.
+
+```bash
+./scripts/led.sh yellow     # one-shot by name
+./scripts/led.sh 3          # one-shot by number key (= yellow)
+./scripts/led.sh 0          # off (same as "black")
+./scripts/led.sh            # interactive — press 0-5/9 to switch, q to quit
+```
+
+**`ros2 run crazyflie_examples color_led`** — the same control as an rclpy
+node (calls `/crazyflie_server/set_parameters` directly; needs the workspace
+built and sourced):
+
+```bash
+ros2 run crazyflie_examples color_led yellow
+ros2 run crazyflie_examples color_led 3
+ros2 run crazyflie_examples color_led       # interactive (q or Ctrl-C quits)
+```
+
+**Raw CLI** — what both boil down to (decimal value, one drone at a time):
+
+```bash
+ros2 param set /crazyflie_server cf1.params.colorLedBot.wrgb8888 16776960   # yellow
+```
+
+Auto-discovery of the per-drone LED params requires
+`firmware_params: query_all_values_on_connect: True` in `config/server.yaml` —
+already set in this repo (it makes connecting slightly slower).
+
+### Standalone cflib demo (server must be STOPPED)
+
+`scripts/color_led_cflib.py` talks to one drone directly over the Crazyradio
+with cflib — no ROS involved. It plays a fixed sequence
+(green → red → green → blue → white → off) and exits.
+
+```bash
+# stop `ros2 launch crazyflie launch.py` first — cflib and the server
+# cannot share the radio dongle
+python3 scripts/color_led_cflib.py
+```
+
+The target URI is hardcoded near the top of the file (marked `# EDIT ME`) —
+set it to the drone you want. The script also enables the deck's brightness
+correction (`colorLedBot.brightCorr = 1`) on connect.
+
 ## Launch arguments (crazyflie launch.py)
 
 | Arg | Values | Meaning |

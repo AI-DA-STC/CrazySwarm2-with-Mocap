@@ -58,6 +58,16 @@
 | Mocap Hz trace in the connectivity panel decays to 0 | Mocap died — see the Mocap pipeline table above (UDP 1511 orphan is the confirmed cause on this rig). |
 | kalman telemetry panel empty | The `kalman_preflight` custom log topic was removed/renamed in `crazyflies.yaml` — restore it ([RUNNING §F](RUNNING.md#f-enabling-extra-telemetry-logging-custom-topics)). |
 
+## Color LED
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| Deck never lights green on connect | Server log says `No Color LED deck detected … skipping LED set` — deck missing/loose, or the firmware doesn't expose the `colorLedBot` params. |
+| `led.sh` / `color_led` warn that no `…colorLedBot.wrgb8888` params were found | `firmware_params: query_all_values_on_connect` must be `True` in `config/server.yaml` (default in this repo — don't set it back to `False`); also confirm the drone actually connected and carries the deck. |
+| `color_led` exits with `/crazyflie_server/set_parameters not available after 10s` | The server isn't running (`ros2 launch crazyflie launch.py`) or your shell is on a different `ROS_DOMAIN_ID`. |
+| Color command "succeeds" but nothing changes under `backend:=sim` | Expected — LED control is hardware-only; the sim backend declares no firmware params. |
+| `color_led_cflib.py` can't open the radio link | The crazyflie_server is still running and owns the dongle — stop the launch first. Also check the in-file `URI` (marked `# EDIT ME`) matches your drone. |
+
 ## Quick diagnostics
 
 ```bash
