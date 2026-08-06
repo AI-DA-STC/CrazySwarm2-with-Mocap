@@ -574,5 +574,5 @@ To pull upstream changes, diff against those and merge manually, or re-vendor.
 ## 9. Documentation and troubleshooting
 
 - [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging; Color LED control
-- [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning
+- [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning; see also [Networking: mocap over a router (lab setup)](docs/MOCAP.md#5-networking-mocap-over-a-router-lab-setup)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failures

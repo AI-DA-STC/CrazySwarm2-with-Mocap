@@ -213,3 +213,20 @@ rebuild:
 - The apt `motion_capture_tracking` path used by `launch.py` requires
   **Multicast**. The vendored `natnet_ros2` path supports unicast (its
   `serverType` param) if the LAN ever can't do multicast.
+
+## 5. Networking: mocap over a router (lab setup)
+
+The lab rig can also run with the mocap PC **wired to a lab router**, with
+drones and laptops joining the **same subnet over 5 GHz Wi-Fi**:
+
+- **Reserve static IPs via the router's DHCP** for the mocap PC, laptops, and
+  drones so addresses stay stable across reboots.
+- **Motive's streaming IP follows the active interface** — after switching the
+  mocap PC (or your laptop) between wired and Wi-Fi, **restart Motive** so the
+  streaming address updates; it does not reflect immediately.
+- **Gigabit ports recommended** on the router/switch for the wired mocap PC.
+
+ST Engineering staff: full router details (credentials, IP plan, photos) are in
+the private repo:
+[groundcontrol-router-setup](https://github.com/AI-DA-STC/groundcontrol-router-setup)
+(TODO: confirm link once published).
