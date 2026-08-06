@@ -426,6 +426,14 @@ and each tool's header docstring is its full manual:
   airborne — needs a **~2.24 m clear radius** around the room center).
   In sim add `--ros-args -p use_sim_time:=true`; on hardware run without it.
   Full flow: [RUNNING §B](docs/RUNNING.md#multi-drone-trajectory-demos).
+
+  ![Formation demo — five drones fly the waypoint tour, pentagon gather, 360° spin, triangle+tail morph, and room-center orbit](video/formation_demo_1.gif)
+
+  *Formation demo flight footage.*
+
+  ![Formation demo — second recording of the multi_trajectory_formation flight](video/formation_demo_2.gif)
+
+  *Formation demo flight footage, second angle (first 60 s).*
 - **Prop-spin ground test** — `ros2 run crazyflie_examples arming` arms and
   spins all four props at low PWM (~15%, far below hover) for 10 s, then stops
   and disarms — motors always stopped even on Ctrl-C. **Ground test only**:

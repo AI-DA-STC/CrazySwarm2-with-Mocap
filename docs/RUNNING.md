@@ -210,6 +210,10 @@ ros2 run crazyflie_examples multi_trajectory_formation --ros-args -p use_sim_tim
   traj1's 16 dropped with the opening pattern)** ≈ 1.6 KB of the firmware's
   ~4 KB trajectory memory. Constants at the top of the script.
 
+  Demo footage: see [`video/formation_demo_1.gif`](../video/formation_demo_1.gif)
+  and [`video/formation_demo_2.gif`](../video/formation_demo_2.gif) (second
+  clip trimmed to the first 60 s).
+
 > **Sim needs `use_sim_time`.** The sim clock runs ~4x slower than wall time
 > (no realtime pacing); without `--ros-args -p use_sim_time:=true` the script's
 > sleeps run on wall clock and it **races ahead of the physics** (commands fire
