@@ -217,6 +217,10 @@ rebuild:
 
 ## 5. Networking: mocap over a router (lab setup)
 
+![Flight laboratory network architecture: OptiTrack cameras → mocap router → Motive workstation, NatNet over wired LAN through the hangar switch to the lab D-Link router; ground control workstation joins via LAN, laptops/drones like the Starling Max 2 via 5 GHz Wi-Fi; Crazyflies are driven by Crazyradio from the workstation (software E-stop via Crazyswarm2), with an optional hardware E-stop remote](../Pics/Flight_lab_architecture.jpg)
+
+*Flight lab network architecture — one-way arrows are data flow, plain lines are two-way connections. IPs are assigned per port, not per machine.*
+
 The lab rig can also run with the mocap PC **wired to a lab router**, with the
 ground-station laptop joining the **same subnet over 5 GHz Wi-Fi**. This network
 carries only the **laptop ↔ Motive-PC link** — the drones ride the Crazyradio
