@@ -9,7 +9,24 @@ byte-for-byte copy of the rig — no upstream fetching. One command installs the
 dependencies and builds it on **Ubuntu 22.04 + ROS 2 Humble** or
 **Ubuntu 24.04 + ROS 2 Jazzy**.
 
-## Architecture
+## Table of contents
+
+1. [Overview and architecture](#1-overview-and-architecture)
+2. [Hardware and supported platforms](#2-hardware-and-supported-platforms)
+3. [Software setup](#3-software-setup)
+   - [Step 1 — Install ROS 2](#step-1--install-ros-2-manual-setupsh-does-not-do-this)
+   - [Step 2 — Clone and run the one-shot setup](#step-2--clone-and-run-the-one-shot-setup)
+   - [Step 3 — Crazyradio USB permissions](#step-3--crazyradio-usb-permissions-manual-hardware-only)
+   - [Step 4 — Simulator firmware bindings](#step-4--simulator-firmware-bindings-cffirmware-simulator-only)
+   - [Step 5 — Activate and smoke-test](#step-5--activate-and-smoke-test)
+4. [Configuring your fleet](#4-configuring-your-fleet)
+5. [Preflight checks](#5-preflight-checks)
+6. [Flying](#6-flying)
+7. [Color LED control](#7-color-led-control)
+8. [Repo layout](#8-repo-layout)
+9. [Documentation and troubleshooting](#9-documentation-and-troubleshooting)
+
+## 1. Overview and architecture
 
 ```
 Motive / OptiTrack server (Windows)
@@ -51,7 +68,13 @@ Motive / OptiTrack server (Windows)
 | `preflight_kalman_plotter.py` | this repo (`src/crazyswarm2/crazyflie/scripts/`) | Preflight GUI — per-drone go/no-go checks before flight |
 | `src/` (vendored) | this repo | Customized crazyswarm2 + natnet_ros2 (configs, launch.py, scripts) |
 
-## Supported platforms
+## 2. Hardware and supported platforms
+
+The rig this repo reproduces: **Crazyflie 2.1** drones, a **Crazyradio** dongle
+(PA or 2.0) on the ROS 2 machine, and an **OptiTrack** camera system with
+**Motive** on a Windows PC streaming NatNet multicast. Drones may optionally
+carry the bottom-mounted **Color LED deck** (`bcColorLedBot`) — see
+[Section 7](#7-color-led-control).
 
 | Ubuntu | ROS 2 | Status |
 |--------|-------|--------|
@@ -61,7 +84,7 @@ Motive / OptiTrack server (Windows)
 The scripts auto-detect the pair from `/etc/os-release` (or an already-sourced
 `$ROS_DISTRO`). Other combinations are rejected with a clear error.
 
-## Setup
+## 3. Software setup
 
 The full install lives here — there is no separate setup doc. `./scripts/setup.sh`
 automates the workspace build, but **two things are deliberately left manual**
@@ -202,7 +225,36 @@ ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 > https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking`)
 > and rebuild. On low-RAM machines use `LOW_MEM=1 ./scripts/build.sh`.
 
-## Running the real drone
+## 4. Configuring your fleet
+
+The source (and its config) is vendored, so **edit files directly in `src/`** and
+commit — a fresh clone then reproduces your exact rig. Key files:
+
+- `src/crazyswarm2/crazyflie/config/crazyflies.yaml` — drone list, URIs, types,
+  firmware logging, and each drone's `initial_position` (update it from `/poses`
+  whenever a drone moves — procedure in
+  [docs/MOCAP.md → Section 2b](docs/MOCAP.md#2b-setting-initial_position-from-poses)).
+- `src/crazyswarm2/crazyflie/config/motion_capture.yaml` — Motive hostname/IP, markers, QoS.
+- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
+- `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
+- `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
+  and **preflight GUI** nodes; `rviz` default `True`, `gui` default `False`).
+- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — the preflight GUI
+  (thresholds and takeoff/land setpoints are constants at the top).
+
+`pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
+Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
+
+> **Heads-up:** `pose_bridge.py` currently lists `DRONES = ['cf1', 'cf2']`,
+> which no longer matches the enabled fleet (`cf1`, `cf2`, `cf3`, `cf10`,
+> `cf14`) — update it before using the alternative natnet_ros2 mocap path.
+
+After editing anything in `src/`, rebuild: `./scripts/build.sh` (or just the
+changed package, e.g. `./scripts/build.sh crazyflie`).
+
+## 5. Preflight checks
+
+### Launch the server
 
 First, in **Motive** set Data Streaming to **Multicast** at **50 Hz** — this must
 match `src/crazyswarm2/crazyflie/config/motion_capture.yaml`. Activate the
@@ -217,9 +269,6 @@ ros2 launch crazyflie launch.py
 
 # run the preflight checklist in the GUI (banner clear, mocap ~50 Hz,
 # err.yaw ≈ 0°, battery green) — see docs/RUNNING.md → Preflight GUI
-
-# terminal 2 — takeoff, hover, land
-ros2 run crazyflie_examples hello_world
 ```
 
 ### What to expect after launch
@@ -242,7 +291,7 @@ If a drone is missing from the GUI it is `enabled: false` in `crazyflies.yaml`.
 If the mocap-Hz trace never rises off zero, mocap isn't reaching the server —
 see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#mocap-pipeline).
 
-## PreFlight Checks
+### The preflight GUI and checklist
 
 The **preflight GUI** is the go/no-go check before *every* flight. It shows four
 panels (kalman telemetry, pose/`stateEstimate`, connectivity, and
@@ -254,7 +303,7 @@ them.** Mechanically (drones with the **Color LED deck**): the server sets
 (green is restored on exit — normal return, exception or Ctrl-C), and the deck
 goes **dark on clean shutdown**. So a lit LED is itself a "link up" preflight
 signal, and red means keep hands clear. The deck can also be set to any color
-manually — see [Color LED control](#color-led-control). Full walkthrough:
+manually — see [Section 7](#7-color-led-control). Full walkthrough:
 [docs/RUNNING.md](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy).
 
 **Checklist — run through this before every test flight / debugging session:**
@@ -401,10 +450,21 @@ sags under load (3.68 V, red, after the flight below):
 
 ![Preflight GUI during/after a flight with a Flow deck — motion in the telemetry panels, mocap held at 50 Hz, battery drained to 3.68 V](Pics/preflight-during-flight.png)
 
+## 6. Flying
+
+### First flight — hello_world
+
+With the server launched and the checklist green (Section 5):
+
+```bash
+# terminal 2 — takeoff, hover, land
+ros2 run crazyflie_examples hello_world
+```
+
 Hover/landing height and durations are set in `hello_world.py` — see
 [docs/RUNNING.md](docs/RUNNING.md#adjusting-the-flight-hello_worldpy).
 
-## Beyond hello_world — flight tools
+### Beyond hello_world — flight tools
 
 Quick reference only; launch flows live in [docs/RUNNING.md](docs/RUNNING.md),
 and each tool's header docstring is its full manual:
@@ -452,7 +512,7 @@ and each tool's header docstring is its full manual:
   [CLAUDE.md → Gotchas](CLAUDE.md#gotchas-hard-won--dont-re-derive)).
   Full flow: [RUNNING Section E](docs/RUNNING.md#runtime-firmware-parameters).
 
-## Color LED control
+## 7. Color LED control
 
 Drones carrying the bottom-mounted **Color LED deck** (`bcColorLedBot`) double
 as swarm status lights. Two things happen automatically:
@@ -489,37 +549,7 @@ a dedicated white channel). **Hardware only** — no effect with `backend:=sim`.
 Full detail (raw `ros2 param set` form, decimal color values, prerequisites):
 [docs/RUNNING.md Section G](docs/RUNNING.md#g-color-led-control-color-led-deck).
 
-## Documentation
-
-- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging; Color LED control
-- [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failures
-
-## Configuration
-
-The source (and its config) is vendored, so **edit files directly in `src/`** and
-commit — a fresh clone then reproduces your exact rig. Key files:
-
-- `src/crazyswarm2/crazyflie/config/crazyflies.yaml` — drone list, URIs, types, firmware logging.
-- `src/crazyswarm2/crazyflie/config/motion_capture.yaml` — Motive hostname/IP, markers, QoS.
-- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
-- `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
-- `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
-  and **preflight GUI** nodes; `rviz` default `True`, `gui` default `False`).
-- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — the preflight GUI
-  (thresholds and takeoff/land setpoints are constants at the top).
-
-`pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
-Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
-
-> **Heads-up:** `pose_bridge.py` currently lists `DRONES = ['cf1', 'cf2']`,
-> which no longer matches the enabled fleet (`cf1`, `cf2`, `cf3`, `cf10`,
-> `cf14`) — update it before using the alternative natnet_ros2 mocap path.
-
-After editing anything in `src/`, rebuild: `./scripts/build.sh` (or just the
-changed package, e.g. `./scripts/build.sh crazyflie`).
-
-## Repo layout
+## 8. Repo layout
 
 ```
 CrazySwarm2/
@@ -532,7 +562,7 @@ CrazySwarm2/
 └── build/  install/  log/   # generated, git-ignored
 ```
 
-## Provenance
+### Provenance
 
 `src/` was vendored from these upstreams (with local customizations):
 
@@ -540,3 +570,9 @@ CrazySwarm2/
 - `natnet_ros2` — github.com/L2S-lab/natnet_ros2 (`883b095`)
 
 To pull upstream changes, diff against those and merge manually, or re-vendor.
+
+## 9. Documentation and troubleshooting
+
+- [docs/RUNNING.md](docs/RUNNING.md) — sim, hardware, mocap launch flows; the preflight GUI; custom logging; Color LED control
+- [docs/MOCAP.md](docs/MOCAP.md) — OptiTrack calibration, rigid bodies, 240→50 Hz tuning
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failures
