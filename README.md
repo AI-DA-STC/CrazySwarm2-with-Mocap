@@ -28,23 +28,7 @@ dependencies and builds it on **Ubuntu 22.04 + ROS 2 Humble** or
 
 ## 1. Overview and architecture
 
-```
-Motive / OptiTrack server (Windows)
-        │  NatNet — Multicast @ 50 Hz
-        ▼
-  motion_capture_tracking  ──►  /poses  (NamedPoseArray)   [started by launch.py]
-        │
-        ▼
-  crazyflie_server  ──►  Crazyradio #0 (radio://0/80/2M) ──►  cf1 cf2 cf3 cf10 cf14
-        │                 (cf6 = commented out, dead on radio; cf5/cf11 = spare, commented out)
-        ▲
-        ├── user scripts via the crazyflie_py API
-        └── preflight GUI + RViz  [both auto-started by launch.py]
-            go/no-go checks: battery, mocap rate, mocap-vs-estimate error
-
-  Alternative mocap path (open driver):
-    Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /poses
-```
+![CrazySwarm2 with Motion Capture — system architecture: Motive streams NatNet multicast at 50 Hz to motion_capture_tracking, which publishes /poses to crazyflie_server; the server drives the Crazyflie fleet over Crazyradio #0 (radio://0/80/2M); user scripts (crazyflie_py) and the preflight GUI + RViz command and monitor it; alternative open-driver path: Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /poses](Pics/Crazyswarm_mocap_architecture.jpg)
 
 > **Single-dongle fleet.** Five drones — `cf1`, `cf2`, `cf3`, `cf10` and `cf14` —
 > are enabled, **all on ONE Crazyradio dongle** (`radio://0/80/2M`; addresses
