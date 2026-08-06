@@ -260,7 +260,7 @@ manually — see [Color LED control](#color-led-control). Full walkthrough:
 **Checklist — run through this before every test flight / debugging session:**
 
 - [ ] **1. Check `crazyflies.yaml`** — in `crazyflie/config/crazyflies.yaml`, the drones you intend to fly are listed under `robots:` with `enabled: true` and shelf drones set to `enabled: false` — the server and preflight GUI only pick up enabled drones ([see example](#img-drone-yaml)). In the same file, check the `all: firmware_logging:` block if you need to track more data: right now only the `kalman_preflight` custom topic is active (plus the default `pose`/`status` topics); extra `custom_topics` can be un-commented/added, but each log block is limited to 26 bytes of variables ([see logging config](#img-logging-yaml)).
-- [ ] **2. Drones on their yaml `initial_position`** — each drone physically sits at **its own** `initial_position` in `crazyflies.yaml` (update the yaml from `/poses` when you move a drone — procedure in [docs/MOCAP.md → §2b](docs/MOCAP.md#2b-setting-initial_position-from-poses)). Every pair of enabled drones must be **≥ 1 m apart**. Why this matters: the flight scripts compute **absolute** `goTo` targets from each drone's yaml `initial_position` (return-home = `initial_position` + height), so a drone placed at another drone's yaml position means crossing `goTo` paths — this caused a **real mid-air collision on 2026-08-04**. Never copy positions from `/cfX/pose` (circular — the estimate is seeded by the yaml); use `/poses` (mocap truth).
+- [ ] **2. Drones on their yaml `initial_position`** — each drone physically sits at **its own** `initial_position` in `crazyflies.yaml` (update the yaml from `/poses` when you move a drone — procedure in [docs/MOCAP.md → Section 2b](docs/MOCAP.md#2b-setting-initial_position-from-poses)). Every pair of enabled drones must be **≥ 1 m apart**. Why this matters: the flight scripts compute **absolute** `goTo` targets from each drone's yaml `initial_position` (return-home = `initial_position` + height), so a drone placed at another drone's yaml position means crossing `goTo` paths — this caused a **real mid-air collision on 2026-08-04**. Never copy positions from `/cfX/pose` (circular — the estimate is seeded by the yaml); use `/poses` (mocap truth).
 - [ ] **3. Check `motion_capture.yaml`** — in `crazyflie/config/motion_capture.yaml`, `hostname` is the IP of the PC running Motive (currently `192.168.8.63`), `topics.frame_id` is `world`, `topics.tf.child_frame_id` is `{}_mocap`, and the Hz rate under `topics.poses.qos.deadline` **tallies with the camera frame rate set in OptiTrack's Motive software** — if Motive streams at a different Hz than the yaml expects, the deadline QoS flags the stream as unhealthy ([see mocap config](#img-mocap-yaml)).
 - [ ] **4. Battery is not red** — header voltage shows green (or at worst orange); red < 3.7 V means charge or swap the pack first ([see battery example](#img-preflight-battery)).
 - [ ] **5. Mocap and radio signal steady** — `mocap [Hz]` flat at ~50 Hz, RSSI steady, latency low and not spiking ([see healthy graph](#img-preflight-healthy)).
@@ -414,8 +414,8 @@ and each tool's header docstring is its full manual:
   Sticks steer a **position setpoint** with a **geofence**: auto-land on
   leaving the fence radius or on stale mocap, height clamped, refuses takeoff
   without a live mocap pose; **B = emergency** (motors cut, drone drops).
-  Full flow: [RUNNING §D](docs/RUNNING.md#teleop_xbox-geofenced-position-teleop);
-  generic gamepad teleop: [RUNNING §D](docs/RUNNING.md#d-manual--teleop-flight).
+  Full flow: [RUNNING Section D](docs/RUNNING.md#teleop_xbox-geofenced-position-teleop);
+  generic gamepad teleop: [RUNNING Section D](docs/RUNNING.md#d-manual--teleop-flight).
 - **Multi-drone trajectory demos** — `ros2 run crazyflie_examples
   multi_trajectory` (whole fleet flies traj1 in formation, returns home, slow
   landing, ~50 s) and `ros2 run crazyflie_examples multi_trajectory_formation`
@@ -425,7 +425,7 @@ and each tool's header docstring is its full manual:
   (1.2 m radius, 12 s, ~0.63 m/s) → back to the pentagon → home, ≈ 58.0 s
   airborne — needs a **~2.24 m clear radius** around the room center).
   In sim add `--ros-args -p use_sim_time:=true`; on hardware run without it.
-  Full flow: [RUNNING §B](docs/RUNNING.md#multi-drone-trajectory-demos).
+  Full flow: [RUNNING Section B](docs/RUNNING.md#multi-drone-trajectory-demos).
 
   ![Formation demo — five drones fly the waypoint tour, pentagon gather, 360° spin, triangle+tail morph, and room-center orbit](video/formation_demo_1.gif)
 
@@ -438,19 +438,19 @@ and each tool's header docstring is its full manual:
   spins all four props at low PWM (~15%, far below hover) for 10 s, then stops
   and disarms — motors always stopped even on Ctrl-C. **Ground test only**:
   drone on the floor, fingers clear.
-  Full flow: [RUNNING §E](docs/RUNNING.md#prop-spin-ground-test-arming-example).
+  Full flow: [RUNNING Section E](docs/RUNNING.md#prop-spin-ground-test-arming-example).
 - **LED tools** — `./scripts/led.sh <color>` and
   `ros2 run crazyflie_examples color_led <color>` set the Color LED deck live
   while the server runs (both also have an interactive number-key mode);
   `scripts/color_led_cflib.py` talks directly over cflib — **stop the server
   first**, they cannot share the Crazyradio.
-  Full flow: [RUNNING §E](docs/RUNNING.md#color-led-deck--status-convention-and-manual-control).
+  Full flow: [RUNNING Section E](docs/RUNNING.md#color-led-deck--status-convention-and-manual-control).
 - **Runtime firmware params** — `ros2 param set /crazyflie_server
   cf1.params.<group>.<name> <value>` now reaches the drone immediately: the
   vendored server pushes params from an on-set callback (upstream's
   `/parameter_events` path silently never fired on this rig — see
   [CLAUDE.md → Gotchas](CLAUDE.md#gotchas-hard-won--dont-re-derive)).
-  Full flow: [RUNNING §E](docs/RUNNING.md#runtime-firmware-parameters).
+  Full flow: [RUNNING Section E](docs/RUNNING.md#runtime-firmware-parameters).
 
 ## Color LED control
 
@@ -487,7 +487,7 @@ python3 scripts/color_led_cflib.py           # fixed color sequence; URI edited 
 All paths set the firmware parameter `colorLedBot.wrgb8888` (`0xWWRRGGBB`, with
 a dedicated white channel). **Hardware only** — no effect with `backend:=sim`.
 Full detail (raw `ros2 param set` form, decimal color values, prerequisites):
-[docs/RUNNING.md §G](docs/RUNNING.md#g-color-led-control-color-led-deck).
+[docs/RUNNING.md Section G](docs/RUNNING.md#g-color-led-control-color-led-deck).
 
 ## Documentation
 

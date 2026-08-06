@@ -29,7 +29,7 @@ ros2 launch crazyflie_examples launch.py script:=hello_world
 > Running the multi-drone trajectory demos against the sim **requires**
 > `--ros-args -p use_sim_time:=true` — the sim clock runs ~4x slower than wall
 > time and the script otherwise races ahead of the physics. See
-> [§B → Multi-drone trajectory demos](#multi-drone-trajectory-demos).
+> [Section B → Multi-drone trajectory demos](#multi-drone-trajectory-demos).
 
 RViz opens by default (`rviz:=false` to disable) and shows the simulated drone.
 The preflight GUI (section C) also opens by default; in sim there is no mocap so
@@ -134,7 +134,7 @@ cause on this rig). See [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline).
 Two whole-fleet scripts (`crazyflie_examples`), both flown on this rig. Every
 enabled drone flies, so clear the preflight checklist for **all** of them and
 make sure each drone sits at **its own** `initial_position`
-([MOCAP §2b](MOCAP.md#2b-setting-initial_position-from-poses)) — wrong-corner
+([MOCAP Section 2b](MOCAP.md#2b-setting-initial_position-from-poses)) — wrong-corner
 placement means crossing `goTo` paths and caused a real collision 2026-08-04.
 
 ```bash
@@ -260,7 +260,7 @@ Why this matters: `locSrv.extPosStdDev = 1e-3` force-fuses the mocap
 when the Motive rigid body was defined rotated. A yaw offset is invisible in
 position at rest — and causes a fly-away in flight. `err.yaw ≈ 0` means the
 rigid body is aligned with the drone's forward axis (see
-[MOCAP §2](MOCAP.md#2-defining-rigid-bodies) for the rule when creating it).
+[MOCAP Section 2](MOCAP.md#2-defining-rigid-bodies) for the rule when creating it).
 
 Go/no-go: within **±5°** fly; **5–15°** fix the rigid body first; **> 20°** do
 not fly.
@@ -382,7 +382,7 @@ ros2 topic echo /cf1/connection_statistics --once
 > the URI or disable the drone in `config/crazyflies.yaml`. See
 > [TROUBLESHOOTING](TROUBLESHOOTING.md#crazyradio--drones) and — when running
 > two dongles — the rules in
-> [MOCAP §3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth).
+> [MOCAP Section 3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth).
 
 ### Prop-spin ground test (`arming` example)
 
@@ -510,7 +510,7 @@ firmware's log TOC or the cpp server aborts at connect).
 1. Uncomment the block (remove the leading `# `), or add your own. Each top-level
    key (`attitude`, `battery`, …) becomes the ROS topic name `/<cf>/<name>`.
 2. Set `frequency` (Hz) — **keep it low**; every block shares the Crazyradio
-   bandwidth (see [MOCAP §3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth)).
+   bandwidth (see [MOCAP Section 3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth)).
 3. List the firmware `vars` you want. Discover valid names with:
    ```bash
    ros2 run crazyflie listLogVariables --uri radio://0/80/2M/E7E7E7E701

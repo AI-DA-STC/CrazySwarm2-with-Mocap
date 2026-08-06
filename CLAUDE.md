@@ -35,7 +35,7 @@ comments) still apply **when running two dongles** — read them before editing 
 `motion_capture_tracking` (started by `launch.py`) connects directly to Motive —
 the natnet_ros2 + `pose_bridge.py` path is an alternative, not the default.
 `launch.py` also auto-starts RViz and the **preflight GUI**
-(`preflight_kalman_plotter.py` — per-drone go/no-go checks; docs/RUNNING.md §C).
+(`preflight_kalman_plotter.py` — per-drone go/no-go checks; docs/RUNNING.md Section C).
 
 ## Repo layout
 
@@ -106,7 +106,7 @@ Key customized files inside `src/`:
   (FORM_HEIGHT). Trajectory
   memory 12 pieces (6 rotation circle at pieceOffset 0 + 6 orbit at offset
   6; traj1's 16 dropped) ≈1.6 KB of the firmware's
-  ~4 KB. docs/RUNNING.md §B.
+  ~4 KB. docs/RUNNING.md Section B.
 - `src/crazyswarm2/crazyflie_sim/crazyflie_sim/crazyflie_sil.py` —
   `plan_start_trajectory` call updated for cffirmware 2025.02 bindings (see
   Gotchas).

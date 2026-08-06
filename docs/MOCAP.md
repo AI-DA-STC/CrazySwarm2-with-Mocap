@@ -4,10 +4,10 @@ This stack uses an OptiTrack camera system running **Motive** (on the Windows
 host) to localize the drones. Motive streams pose data over NatNet (multicast)
 to `motion_capture_tracking` — started by `launch.py` — which publishes
 `/poses` for the swarm server. The open `natnet_ros2` + `pose_bridge.py` path
-is an alternative, not the default (see [RUNNING §B](RUNNING.md#b-hardware-flight-with-optitrack)).
+is an alternative, not the default (see [RUNNING Section B](RUNNING.md#b-hardware-flight-with-optitrack)).
 
 Four things must be right before flight: a **good calibration**, a **clean rigid
-body per drone**, the **rigid body's forward axis on +X** (§2), and a
+body per drone**, the **rigid body's forward axis on +X** (Section 2), and a
 **streaming rate matched to your radio bandwidth**.
 
 > Config files referred to below as `config/<name>.yaml` live at
@@ -69,7 +69,7 @@ Each drone needs its own rigid body so Motive streams one pose per drone:
 > looks perfect (~1 mm) even with a rotated body — the offset is invisible at
 > rest and becomes a fly-away in flight. The preflight GUI catches this (red
 > misalignment banner / dashed `err.yaw`, see
-> [RUNNING §C](RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy)); RViz
+> [RUNNING Section C](RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy)); RViz
 > shows it as rotated axes between the `<cf>` and `<cf>_mocap` frames. If in
 > doubt, delete the rigid body, re-orient the drone, and recreate it.
 
@@ -126,7 +126,7 @@ log topics so the 2 Mbit/s radio is not maxed out.
    (`type: optitrack_closed_source` in `config/motion_capture.yaml`). The
    transmission type is read **once at connect** — after changing it in Motive,
    fully restart the launch (and check for leftover frozen mocap processes
-   first, see [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline)). See §4
+   first, see [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline)). See Section 4
    for what multicast vs unicast actually means.
 4. Set the **point cloud / camera rate** to **50 Hz** (Motive *Settings →
    Cameras → Rate*, or the system rate). The streaming rate follows the camera
@@ -161,7 +161,7 @@ all:
         frequency: 1    # Hz
     custom_topics:
       kalman_preflight:
-        frequency: 5    # Hz — feeds the preflight GUI (RUNNING §C); keep enabled
+        frequency: 5    # Hz — feeds the preflight GUI (RUNNING Section C); keep enabled
         vars: [kalman.stateX, kalman.stateY, kalman.stateZ, motion.deltaX,
                motion.deltaY, range.zrange, stateEstimateZ.vx, stateEstimateZ.vy]
 ```
