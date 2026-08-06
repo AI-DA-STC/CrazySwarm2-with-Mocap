@@ -123,7 +123,8 @@ log topics so the 2 Mbit/s radio is not maxed out.
    is on (turn off VRPN/Trackd if unused).
 3. Set the **data signal / transmission type** to **Multicast** (not Unicast).
    The apt `motion_capture_tracking` requires the multicast stream
-   (`type: optitrack_closed_source` in `config/motion_capture.yaml`). The
+   (this repo uses `type: "optitrack"`, the open parser, in
+   `config/motion_capture.yaml` — see Section 5 for why). The
    transmission type is read **once at connect** — after changing it in Motive,
    fully restart the launch (and check for leftover frozen mocap processes
    first, see [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline)). See Section 4
@@ -216,17 +217,32 @@ rebuild:
 
 ## 5. Networking: mocap over a router (lab setup)
 
-The lab rig can also run with the mocap PC **wired to a lab router**, with
-drones and laptops joining the **same subnet over 5 GHz Wi-Fi**:
+The lab rig can also run with the mocap PC **wired to a lab router**, with the
+ground-station laptop joining the **same subnet over 5 GHz Wi-Fi**. This network
+carries only the **laptop ↔ Motive-PC link** — the drones ride the Crazyradio
+and never join the subnet (Section 4):
 
-- **Reserve static IPs via the router's DHCP** for the mocap PC, laptops, and
-  drones so addresses stay stable across reboots.
+- **Reserve static IPs via the router's DHCP** for the mocap PC and laptops so
+  addresses stay stable across reboots.
 - **Motive's streaming IP follows the active interface** — after switching the
   mocap PC (or your laptop) between wired and Wi-Fi, **restart Motive** so the
   streaming address updates; it does not reflect immediately.
 - **Gigabit ports recommended** on the router/switch for the wired mocap PC.
 
-ST Engineering staff: full router details (credentials, IP plan, photos) are in
-the private repo:
+**Concrete consequence:** switching your laptop between the router Wi-Fi and the
+direct LAN **changes the Motive PC's address**, so `config/motion_capture.yaml`
+must be updated to match:
+
+- **`hostname:`** — the Motive PC's **current** IP on the interface you are
+  using (the Wi-Fi and LAN addresses differ).
+- **`type: "optitrack"`** (the open parser) is **REQUIRED on Wi-Fi** — the
+  closed-source parser wedges **permanently** on a Wi-Fi multicast stall and
+  never recovers.
+
+Then **restart Motive and relaunch** the stack. Symptom of forgetting:
+`/poses` stays silent with **no error**.
+
+ST Engineering staff: the lab-specific addresses and full router details
+(credentials, IP plan, photos) are in the private repo:
 [Mocap_QC_Ground_Control_Router_Information](https://github.com/AI-DA-STC/Mocap_QC_Ground_Control_Router_Information)
 (TODO: confirm link once published).

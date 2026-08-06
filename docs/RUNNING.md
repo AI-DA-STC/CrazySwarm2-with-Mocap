@@ -53,8 +53,10 @@ driver or bridge for this path.
 2. In **Motive → Settings → Streaming**, set the data signal type to
    **Multicast** and the rate to **50 Hz**. This **must match**
    `config/motion_capture.yaml` in the crazyswarm2 package
-   (`type: optitrack_closed_source`, `poses.qos.deadline: 50.0`). A mismatch here
-   is the most common reason the drone won't localize.
+   (`type: "optitrack"` — the open parser, **required on Wi-Fi** and fine on
+   LAN — and `poses.qos.deadline: 50.0`). A `type: "optitrack_closed_source"`
+   option exists but hangs **permanently** after a Wi-Fi multicast stall — don't
+   use it. A mismatch here is the most common reason the drone won't localize.
 
 ### Fly
 
@@ -118,7 +120,9 @@ ros2 topic echo /cf1/status --once # battery / supervisor / link health
 ```
 
 If `/poses` is silent → fix Motive streaming (Multicast + 50 Hz, Broadcast Frame
-on) or the hostname/IP in `config/motion_capture.yaml`. If `/poses` **was**
+on) or the hostname/IP in `config/motion_capture.yaml` — it must be the Motive
+PC's **current** address, which changes when you switch between Wi-Fi and LAN
+([MOCAP Section 5](MOCAP.md#5-networking-mocap-over-a-router-lab-setup)). If `/poses` **was**
 flowing and stopped, check `ros2 topic info /poses` — 0 publishers means the
 mocap node is dead or starved (a leftover process on UDP 1511 is the confirmed
 cause on this rig). See [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline).
