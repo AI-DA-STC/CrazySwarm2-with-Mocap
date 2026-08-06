@@ -65,7 +65,10 @@ sudo apt-get install -y ros-"${ROS_DISTRO}"-foxglove-bridge || true
 sudo apt-get install -y python3-pyqt5 || true
 
 # cflib is needed only for the Python (cflib) backend; harmless otherwise.
-pip3 install --user cflib cfclient 2>/dev/null || pip3 install --user --break-system-packages cflib cfclient || true
+# rowan is imported by crazyflie_py (all flight scripts).
+# matplotlib>=3.9: the apt matplotlib (3.5, NumPy-1 ABI) crashes under the pip
+# NumPy 2.x that cflib pulls in; the preflight GUI needs a NumPy-2-compatible one.
+pip3 install --user cflib cfclient rowan "matplotlib>=3.9" 2>/dev/null || pip3 install --user --break-system-packages cflib cfclient rowan "matplotlib>=3.9" || true
 
 # --- rosdep -------------------------------------------------------------------
 echo "==> Running rosdep"

@@ -1,0 +1,236 @@
+# CLAUDE.md — CrazySwarm2 (self-contained workspace)
+
+Guidance for Claude Code working in this repository. Read before editing or debugging.
+
+## What this repo is
+
+A **self-contained ROS 2 workspace** for an indoor **Crazyflie 2.1 swarm** with
+**OptiTrack** mocap, built on [crazyswarm2](https://github.com/IMRCLab/crazyswarm2).
+The full customized source is **vendored in `src/`** (committed), so a clone is a
+byte-for-byte copy of the rig. `setup.sh` only installs deps and builds — it does
+**not** fetch upstream.
+
+- **`src/` IS committed** — edit source/config here directly; a clone reproduces the rig.
+- **`build/`, `install/`, `log/`, `core.*` are git-ignored** — never commit them.
+
+## Architecture (data flow)
+
+```
+Motive/OptiTrack ──NatNet Multicast@50Hz──► motion_capture_tracking ──/poses──►
+  crazyflie_server ──Crazyradio #0 (radio://0/80/2M)──► cf1 cf2 cf3 cf10 cf14
+                    ▲ user scripts via crazyflie_py
+                      (cf6 = commented out, DEAD on radio 2026-08-04; cf5/cf11 = spares, commented out)
+Alt mocap path: Motive → natnet_ros2 → /<body>/pose → pose_bridge.py → /poses
+```
+
+Fleet = **cf1 + cf2 + cf3 + cf10 + cf14 enabled** (five drones), all on **ONE
+Crazyradio dongle** (`radio://0/80/2M`, addresses `0xE7E7E7E701/02/03/10/14`).
+`cf6` is commented out — dead on radio 2026-08-04
+(silent on full channel/datarate sweeps at its own AND the factory address;
+needs a physical check; do NOT re-enable until `scan --address 0xE7E7E7E706`
+answers). `cf5`/`cf11` are disabled spares. The two-dongle cf1+cf11 setup is
+historical; its channel/datarate rules (Gotchas below, `crazyflies.yaml`
+comments) still apply **when running two dongles** — read them before editing URIs.
+
+`motion_capture_tracking` (started by `launch.py`) connects directly to Motive —
+the natnet_ros2 + `pose_bridge.py` path is an alternative, not the default.
+`launch.py` also auto-starts RViz and the **preflight GUI**
+(`preflight_kalman_plotter.py` — per-drone go/no-go checks; docs/RUNNING.md §C).
+
+## Repo layout
+
+```
+src/                # VENDORED source (committed)
+  crazyswarm2/        # customized: configs, launch.py (foxglove node), scripts, examples
+  natnet_ros2/        # OptiTrack driver (+ vendored NatNetSDK)
+scripts/
+  setup.sh            # install_deps + build (source already present)
+  install_deps.sh     # distro-aware apt + rosdep + pip
+  build.sh            # colcon wrapper (LOW_MEM=1 for SBCs)
+  setup_sim_firmware.sh  # build cffirmware bindings (SIM only)
+  led.sh              # set the Color LED deck via `ros2 param set` (server must be running)
+  color_led_cflib.py  # LED test straight over cflib (STOP the server first — one radio owner)
+pose_bridge.py      # natnet → /poses (NamedPoseArray @ 50 Hz)
+docs/               # RUNNING, MOCAP, TROUBLESHOOTING
+README.md           # single setup doc (no separate SETUP.md)
+```
+
+Key customized files inside `src/`:
+- `src/crazyswarm2/crazyflie/config/*.yaml` — drone/mocap/server/teleop config.
+  `crazyflies.yaml` has the `kalman_preflight` custom log topic (feeds the
+  preflight GUI; 22 B of the 26 B log-block budget — vars must exist in the
+  firmware log TOC or the cpp server aborts at connect).
+- `src/crazyswarm2/crazyflie/launch/launch.py` — adds the **foxglove_bridge** and
+  **preflight GUI** nodes; defaults: `rviz` `True`, `preflight` `True`,
+  `foxglove` `True`, `gui` `False` (upstream lacks the extra nodes).
+- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — preflight GUI.
+  Constants at the top: `ORIENT_WARN_DEG` 10°, `ERR_STALE_S` 3 s, takeoff/land
+  setpoints (0.5 m/3 s, 0.03 m/3 s), `LOG_DIR` = `~/crazyswarm_ws/preflight_logs`
+  (hardcoded, NOT under this repo). Keys: `r` reset kalman, `e` broadcast e-stop
+  (deliberate); takeoff/land have no keys on purpose.
+- `src/crazyswarm2/crazyflie/src/crazyflie_server.cpp` — runtime firmware-param
+  pushes use `add_on_set_parameters_callback` instead of upstream's
+  ParameterEventHandler (self-generated `/parameter_events` never loop back on
+  this rig — see Gotchas), so `ros2 param set` now actually reaches the drones;
+  also sets the Color LED deck **green on connect** / off on clean disconnect.
+- `src/crazyswarm2/crazyflie/config/server.yaml` —
+  `query_all_values_on_connect: True` (all firmware-param values are fetched at
+  connect, not lazily).
+- `src/crazyswarm2/crazyflie_examples/crazyflie_examples/multi_trajectory.py` —
+  arms before takeoff; flies ONLY `traj1.csv` (~25 s) on all drones (traj0
+  dropped, ~50 s total); return-home goTo (+0.75 m over each drone's own
+  `initial_position`) then slow 4 s land (`targetHeight` 0.04).
+- `src/crazyswarm2/crazyflie_examples/crazyflie_examples/multi_trajectory_formation.py`
+  — entry point in `setup.cfg`: NO traj1 anymore (plain `multi_trajectory`
+  still flies it, unchanged) — instead a **formation waypoint tour**
+  (3 waypoints + return: WAYPOINT_OFFSETS (0.6,0)/(−0.6,0.5)/(0,−0.6) then
+  (0,0), each applied rigidly to EVERY drone's own start hover position, so
+  separation stays the 1.36 m start spacing; max excursion ~2.14 m from
+  ROOM_CENTER, inside the orbit clearance), then regular **n-gon gather**
+  (pentagon at R=0.8; phase offset auto-optimized per initial positions, 1°
+  sweep + min-distance assignment) → **ONE continuous smooth +360° rotation**
+  (uploaded circle trajectory id 1, 10 s — NOT stepped goTos) →
+  **triangle+tail-pair morph** (5 slots) → rigid **swarm ORBIT** around
+  ROOM_CENTER (0.0467, −0.1037) at R=1.2 (shared circle trajectory id 2, 12 s,
+  ~0.63 m/s tangential / ~0.33 m/s² centripetal, `relative=True` = rigid
+  translation) → **expand back onto the gather pentagon** → **home**
+  (a DIRECT return crossed paths at R=2.0 — 1 crossing verified — the
+  pentagon intermediate step is kept at R=1.2 even though the direct
+  return is crossing-free there) + slow
+  4.5 s land (~0.16 m/s descent). Long moves (waypoint legs, ring shift,
+  both return legs) use distance-scaled goTo durations
+  `max(2.0, longest_xy/0.5)` s (≤0.5 m/s avg); short morphs
+  keep TRANS_DURATION=2.0. Min separation 0.84 m; **orbit sweeps ~2.24 m
+  radius around ROOM_CENTER (keep clear — shrank from ~3.05 m at R=2.0)**;
+  ≈58.0 s takeoff→landed; formation altitude 1.0 m
+  (FORM_HEIGHT). Trajectory
+  memory 12 pieces (6 rotation circle at pieceOffset 0 + 6 orbit at offset
+  6; traj1's 16 dropped) ≈1.6 KB of the firmware's
+  ~4 KB. docs/RUNNING.md §B.
+- `src/crazyswarm2/crazyflie_sim/crazyflie_sim/crazyflie_sil.py` —
+  `plan_start_trajectory` call updated for cffirmware 2025.02 bindings (see
+  Gotchas).
+
+## Build & run
+
+```bash
+# ROS 2 must be installed first (manual; see README Setup Step 1).
+./scripts/setup.sh                                  # full setup + build
+./scripts/setup_sim_firmware.sh                     # only if using backend:=sim
+source /opt/ros/$ROS_DISTRO/setup.bash && source install/setup.bash
+ros2 launch crazyflie launch.py backend:=sim        # rviz + preflight GUI on by default
+ros2 run crazyflie_examples hello_world             # takeoff/hover/land
+```
+Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
+`/etc/os-release`). Tested by running on Jazzy; Humble is verified by inspection.
+
+## Gotchas (hard-won — don't re-derive)
+
+- **`set -u` vs ROS `setup.bash`.** Sourcing `/opt/ros/<distro>/setup.bash` under
+  `set -u` aborts on the unbound `AMENT_TRACE_SETUP_FILES`. `build.sh` wraps the
+  source in `set +u`/`set -u`. Without it the build silently never runs → empty
+  `install/`.
+- **cffirmware (simulator only).** `crazyflie_sim` imports `cffirmware` (Crazyflie
+  firmware Python bindings) — not a pip package. `setup_sim_firmware.sh` builds it
+  from `crazyflie-firmware` (tag 2025.02). NOT needed for hardware backends.
+  - Its **CMSIS submodule needs `git-lfs`** or the checkout aborts (`arm_add_f32.c`
+    missing). The script installs git-lfs.
+  - The `setup.py` egg does **not** bundle the compiled `_cffirmware*.so`; expose
+    `crazyflie-firmware/build` on `PYTHONPATH` instead (script appends to `~/.bashrc`).
+- **conda shadows system Python.** ROS 2 runs nodes with `/usr/bin/python3`. A conda
+  base env (different Python) causes `No module named '_cffirmware'` and rclpy errors.
+  Deactivate conda for ROS work. (Intentionally NOT special-cased in the scripts.)
+- **RViz and the preflight GUI are ON by default** in `launch.py`
+  (`rviz:=false` / `preflight:=False` to disable). `foxglove:=True` by default
+  but needs `ros-$ROS_DISTRO-foxglove-bridge` (installed by `install_deps.sh`);
+  view via the Foxglove Studio app, not a window.
+- **Mocap "died" / `/poses` 0 publishers** — CONFIRMED cause on this rig: a
+  leftover process bound to UDP 1511. Two `SO_REUSEPORT` sockets on 1511 → the
+  kernel gives each NatNet datagram to only ONE socket → the mocap node starves
+  and hangs silently in libmotioncapture `connect()` (no crash, not in
+  `ros2 node list`). Diagnose `ss -uanp | grep :1511`; kill the orphan and
+  relaunch. Ping to the Motive PC proves nothing (unicast ≠ multicast).
+- **Motive transmission type is read once at connect** (apt
+  `motion_capture_tracking` requires Multicast) — after changing it, fully
+  restart the launch. A frozen mocap node ignores SIGINT (blocked in `recv`);
+  launch escalates to SIGKILL — check `pgrep -f motion_capture_tracking` for
+  leftovers (they make the next connect SIGABRT).
+- **Rigid-body orientation.** Create the Motive rigid body with the drone's
+  forward axis on global +X. `locSrv.extPosStdDev=1e-3` force-fuses mocap
+  position, so position error is ~1 mm even with a rotated body — a yaw offset
+  is invisible at rest and a fly-away in flight. The preflight GUI's banner /
+  `err.yaw` catches it (±5° fly; 5–15° fix; >20° no fly).
+- **ROS apt 404 churn.** `ros-<distro>-{sensor-msgs,tf2-ros,ament-cmake-auto}` can
+  404 when apt tries to *upgrade* to a pruned pool version. `install_deps.sh` uses
+  `--no-upgrade` for these (desktop already provides them).
+- **natnet NatNet SDK** is vendored under `src/natnet_ros2/deps/NatNetSDK/`
+  (x86_64). On a different arch the build re-downloads it via `wget` (needs internet).
+- **Same-process DDS loopback failure.** On this rig a node's OWN
+  `/parameter_events` messages are never delivered back to itself (events from
+  *other* processes arrive fine). Three consequences: (1) runtime firmware-param
+  pushes in `crazyflie_server.cpp` use `add_on_set_parameters_callback`
+  (synchronous, inside the `set_parameters` service call — no pub/sub
+  round-trip) instead of upstream's ParameterEventHandler, which never fired,
+  so `ros2 param set` silently never reached the drones; (2) `scripts/led.sh`
+  deliberately drives the `ros2` CLI (its long-running daemon keeps the ROS
+  graph warm) instead of rclpy — fresh rclpy processes see DDS discovery never
+  complete and parameter service calls time out; (3) `Crazyswarm()` in a fresh
+  rclpy process can hang waiting on `all/emergency` for the same reason
+  (`color_led.py` avoids Crazyswarm() and calls `set_parameters` directly).
+- **Server BLOCKS FOREVER on the first unreachable enabled drone.** The cpp
+  server connects drones in lexicographic `std::map` order and hangs
+  **silently** on the first enabled drone that doesn't answer radio — one
+  unreachable drone kills the whole launch (no error, no `/all/*` services,
+  needs SIGKILL). Go/no-go rule: **scan every enabled address before every
+  launch** (currently `0xE7E7E7E701/02/03/10/14`). cf6 died this way 2026-08-04 (silent on full channel/datarate
+  sweeps at its own AND factory address — physical check needed).
+- **Two Crazyradios (when running two dongles — current rig is single-dongle):
+  channels must be ≥2 apart at 2M.** A 2M channel is ~2 MHz wide, so adjacent
+  channels overlap and crazyflie-link-cpp refuses the pair — USBManager.cpp:
+  `"Channels 80 and 81 are already served by Crazyradio 0"`. Historical
+  two-dongle rig: cf1 on `radio://0/80/2M`, cf11 on `radio://1/90/1M`
+  (10 channels clear).
+- **URI datarate must match the drone.** A wrong datarate in the URI (e.g. `2M`
+  for a drone talking `1M`) makes the server hang **forever** waiting for a
+  drone that never answers — no error, and the `/all/*` services are never
+  created. Verify with a scan on the drone's address
+  (`scan --address 0xE7E7E7E711` → `radio://*/90/1M/...`).
+- **`initial_position` comes from `/poses`, never `/cfX/pose`.** The onboard
+  estimate is seeded by the yaml — copying it back is circular. Procedure:
+  place drones → read x/y from `/poses`
+  (`ros2 topic echo /poses | grep -A5 -- '- name: cf1$'`) → edit
+  `crazyflies.yaml` → restart the server (yaml read only at launch). Enabled
+  drones **≥1 m apart** (same-trajectory flight preserves start separation),
+  and each drone at ITS OWN yaml position — wrong-corner placement = crossing
+  goTo paths = the real collision of 2026-08-04.
+- **Sim `plan_start_trajectory` signature (cffirmware 2025.02).** The bindings
+  split `relative` into `relative_position`/`relative_yaw` and added
+  `start_from`/`start_yaw`; the old 5-arg call crashed the sim server with a
+  TypeError at `start_trajectory`. Fixed in `crazyflie_sim/crazyflie_sil.py`
+  (`relative_yaw=False`, mirroring the firmware's legacy handler). Sim-only;
+  hardware unaffected. Re-vendoring upstream reintroduces the crash.
+- **Sim runs need `--ros-args -p use_sim_time:=true`** for the trajectory
+  demos (`multi_trajectory`, `multi_trajectory_formation`) — the sim clock is
+  ~4x slower than wall time, so without the flag the script races ahead of the
+  physics. Hardware runs WITHOUT the flag.
+- **LED convention: green = drone connected and ready for command; red =
+  drones are in flight / a script is controlling them.** The server turns the
+  Color LED deck green on connect (and off on clean disconnect); every
+  crazyflie_py script sets it red for its lifetime and restores green on exit
+  (`crazyswarm_py.py`, atexit — survives exceptions and Ctrl-C; if rclpy is
+  already shut down the deck keeps its last color). Change colors manually
+  with `scripts/led.sh` or `ros2 run crazyflie_examples color_led`.
+
+## Conventions for Claude
+
+- **Edit source/config directly in `src/`** and commit — there is no overlay or
+  re-import that would clobber it. A clone reproduces exactly what's committed.
+- After editing `src/`, rebuild with `./scripts/build.sh` (or `build.sh <pkg>`),
+  then re-source `install/setup.bash`. Rebuild dependents after `.msg`/`.srv` edits.
+- `pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
+  Motive streaming rate (50 Hz). Currently STALE: it lists `cf1, cf2` but the
+  enabled fleet is `cf1, cf2, cf3, cf10, cf14` — fix `DRONES` before using the
+  alt mocap path.
+- Keep scripts distro-parameterized (`ros-${ROS_DISTRO}-…`); never hardcode `jazzy`.
+- `gh` is not installed here and pushes need the user's GitHub auth — don't attempt
+  to push; report and let the user push. Remote: `origin`=jeremyCHH (the only one).

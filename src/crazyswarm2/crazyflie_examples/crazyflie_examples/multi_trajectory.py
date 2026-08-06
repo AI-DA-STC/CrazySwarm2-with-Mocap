@@ -12,14 +12,14 @@ def main():
     timeHelper = swarm.timeHelper
     allcfs = swarm.allcfs
     trajs = []
-    n = 2  # number of distinct trajectories
+    n = 1  # number of distinct trajectories (traj0 dropped to shorten demo)
 
     # enable logging
     allcfs.setParam('usd.logging', 1)
 
     for i in range(n):
         traj = Trajectory()
-        traj.loadcsv(Path(__file__).parent / f'data/multi_trajectory/traj{i}.csv')
+        traj.loadcsv(Path(__file__).parent / 'data/multi_trajectory/traj1.csv')
         trajs.append(traj)
 
     TRIALS = 1
@@ -27,6 +27,11 @@ def main():
     for i in range(TRIALS):
         for idx, cf in enumerate(allcfs.crazyflies):
             cf.uploadTrajectory(0, 0, trajs[idx % len(trajs)])
+
+        # Arm
+        for cf in allcfs.crazyflies:
+            cf.arm(True)
+        timeHelper.sleep(1.0)
 
         allcfs.takeoff(targetHeight=1.0, duration=2.0)
         timeHelper.sleep(3.0)
@@ -38,8 +43,14 @@ def main():
         allcfs.startTrajectory(0, timescale=TIMESCALE)
         timeHelper.sleep(max([t.duration for t in trajs]) * TIMESCALE + 2.0)
 
-        allcfs.land(targetHeight=0.06, duration=2.0)
-        timeHelper.sleep(3.0)
+        # return home, then slow descent
+        for cf in allcfs.crazyflies:
+            pos = np.array(cf.initialPosition) + np.array([0.0, 0.0, 0.75])
+            cf.goTo(pos, 0, 3.5)
+        timeHelper.sleep(4.0)
+
+        allcfs.land(targetHeight=0.04, duration=4.0)
+        timeHelper.sleep(5.0)
 
     # disable logging
     allcfs.setParam('usd.logging', 0)

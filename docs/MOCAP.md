@@ -53,7 +53,10 @@ Each drone needs its own rigid body so Motive streams one pose per drone:
 3. In the rigid body's properties, give it a **name that matches everything
    downstream** — the same string used in:
    - `config/crazyflies.yaml` (the robot key, e.g. `cf1`),
-   - `pose_bridge.py` `DRONES = ['cf1', 'cf2']`,
+   - `pose_bridge.py` `DRONES` (**alternative natnet_ros2 path only** — this
+     list must be kept in sync with the fleet enabled in `crazyflies.yaml`;
+     it currently reads `['cf1', 'cf2']` while the enabled fleet is
+     `cf1`/`cf2`/`cf3`/`cf10`/`cf14`, so update it before using that path),
    - the `/<name>/pose` topic published by `natnet_ros2`.
 4. Enable **streaming IDs / names** and make sure orientation looks stable (the
    rigid body's axes shouldn't jitter or flip). Keep marker patterns
@@ -73,6 +76,37 @@ Each drone needs its own rigid body so Motive streams one pose per drone:
 > The marker geometry in `config/motion_capture.yaml`
 > (`marker_configurations`) must match the physical marker layout on the drone
 > (`default_single_marker`, `mocap_deck`, etc.).
+
+## 2b. Setting `initial_position` from `/poses`
+
+Whenever the drones' floor placement changes, update each drone's
+`initial_position` in `config/crazyflies.yaml` from **mocap truth**:
+
+1. **Place** the drones on the floor where they will take off.
+2. **Read each drone's x/y from `/poses`** (with the launch running). Per-drone
+   filter:
+   ```bash
+   ros2 topic echo /poses | grep -A5 -- '- name: cf1$'
+   ```
+3. **Copy** the x/y (z ≈ 0) into that drone's `initial_position` in
+   `crazyflies.yaml`.
+4. **Restart the server** — the yaml is read **only at launch**; an edit while
+   the server runs changes nothing.
+
+Rules — each one is load-bearing:
+
+- **NEVER copy from `/cfX/pose`.** That is the onboard estimate, which is
+  **seeded by the yaml** — copying it back is circular and just launders
+  whatever stale value was there. `/poses` is the mocap ground truth.
+- **Every pair of enabled drones ≥ 1 m apart.** The multi-drone demos fly the
+  same relative trajectory on every drone, so the flight **preserves the start
+  separation** — the spacing on the floor is the spacing in the air.
+- **Each drone sits at ITS OWN yaml position.** The flight scripts compute
+  **absolute** `goTo` targets from `initial_position` (return-home =
+  `initial_position` + height), so two drones swapped between corners means
+  the return-home / formation `goTo` paths **cross** — this caused a **real
+  mid-air collision on 2026-08-04**. Match names on the floor to names in the
+  yaml before every flight.
 
 ## 3. Frequency / bandwidth tuning (240 → 50 Hz)
 
@@ -134,8 +168,19 @@ all:
 
 Guidelines:
 
-- **One radio dongle per 1–2 drones.** Drones on the same URI channel share the
-  same radio bandwidth.
+- **Drones on the same URI channel share one radio's bandwidth.** This rig
+  currently runs **single-dongle**: cf1/cf2/cf3/cf10/cf14 all on `radio://0/80/2M` —
+  workable because the log rates below are trimmed low. **When running two
+  dongles** — as this rig historically did (cf1 on `radio://0/80/2M`, cf11 on
+  `radio://1/90/1M`) — two rules, both proven the hard way here (see the
+  comments in `config/crazyflies.yaml`):
+  - **Channels ≥2 apart at 2M.** A 2M channel is ~2 MHz wide; adjacent
+    channels make crazyflie-link-cpp refuse the pair outright:
+    `Channels 80 and 81 are already served by Crazyradio 0`.
+  - **Per-drone datarate must match the URI.** A `2M` URI on a drone whose
+    radio runs at `1M` makes the server **hang forever at connect** — and the
+    `/all/*` services (takeoff/land/arm) are never created. Verify with a scan
+    on the drone's address (`ros2 run crazyflie scan --address 0xE7E7E7E711`).
 - Keep total logging modest: `pose @ 10 Hz`, `status @ 1 Hz`, the
   `kalman_preflight` block `@ 5 Hz` is enough for monitoring. Add high-rate
   logging (50 Hz attitude/kalman

@@ -1,120 +1,51 @@
 #!/usr/bin/env python
+"""Arm and spin all propellers at low power for 10 s, then stop.
+
+Ground test only - keep the drone on the floor, clear of fingers.
+
+A brushed CF2.1 does NOT idle-spin its propellers on arming (that is
+Bolt/brushless behavior); arming just sets a supervisor flag, and the
+firmware auto-disarms again after a few idle seconds. So for a visible
+check this drives the firmware's motor-test params (motorPowerSet.*,
+the same path cfclient's propeller test uses). SPIN_PWM is far below
+hover thrust, so the drone stays put.
+"""
 from crazyflie_py import Crazyswarm
-from geometry_msgs.msg import PoseStamped
-from crazyflie_interfaces.msg import Status, LogDataGeneric
-import csv
-import time
-import threading
-from datetime import datetime
 
-# ---------------- Config ----------------
-LOG_FILE = f'/home/aqeel/cf1_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-DRONE_NAME = 'cf1'
-
-# ---------------- Logger ----------------
-class DroneLogger:
-    def __init__(self, node):
-        self.latest_pose = None
-        self.latest_status = None
-        self.latest_estimator = [None, None, None]
-        self.latest_attitude = [None, None, None]
-        self.latest_kalman = [None, None, None]
-        self.lock = threading.Lock()
-
-        self.csv_file = open(LOG_FILE, 'w', newline='')
-        self.writer = csv.writer(self.csv_file)
-        self.writer.writerow([
-            'timestamp',
-            'pos_x', 'pos_y', 'pos_z',
-            'ori_x', 'ori_y', 'ori_z', 'ori_w',
-            'battery_v', 'rssi',
-            'stateEstimate_x', 'stateEstimate_y', 'stateEstimate_z',
-            'stabilizer_roll', 'stabilizer_pitch', 'stabilizer_yaw',
-            'kalman_stateX', 'kalman_stateY', 'kalman_stateZ'
-        ])
-
-        node.create_subscription(PoseStamped, f'/{DRONE_NAME}/pose', self.pose_callback, 10)
-        node.create_subscription(Status, f'/{DRONE_NAME}/status', self.status_callback, 10)
-        node.create_subscription(LogDataGeneric, f'/{DRONE_NAME}/estimator', self.estimator_callback, 10)
-        node.create_subscription(LogDataGeneric, f'/{DRONE_NAME}/attitude', self.attitude_callback, 10)
-        node.create_subscription(LogDataGeneric, f'/{DRONE_NAME}/kalman', self.kalman_callback, 10)
-
-        print(f'Logging to {LOG_FILE}')
-
-    def pose_callback(self, msg):
-        with self.lock:
-            self.latest_pose = msg
-            self._write_row()
-
-    def status_callback(self, msg):
-        with self.lock:
-            self.latest_status = msg
-
-    def estimator_callback(self, msg):
-        with self.lock:
-            if len(msg.values) >= 3:
-                self.latest_estimator = list(msg.values[:3])
-
-    def attitude_callback(self, msg):
-        with self.lock:
-            if len(msg.values) >= 3:
-                self.latest_attitude = list(msg.values[:3])
-
-    def kalman_callback(self, msg):
-        with self.lock:
-            if len(msg.values) >= 3:
-                self.latest_kalman = list(msg.values[:3])
-
-    def _write_row(self):
-        if self.latest_pose is None:
-            return
-        p = self.latest_pose.pose.position
-        o = self.latest_pose.pose.orientation
-        batt = self.latest_status.battery_voltage if self.latest_status else 0.0
-        rssi = self.latest_status.rssi if self.latest_status else 0
-        self.writer.writerow([
-            time.time(),
-            p.x, p.y, p.z,
-            o.x, o.y, o.z, o.w,
-            batt, rssi,
-            self.latest_estimator[0],
-            self.latest_estimator[1],
-            self.latest_estimator[2],
-            self.latest_attitude[0],
-            self.latest_attitude[1],
-            self.latest_attitude[2],
-            self.latest_kalman[0],
-            self.latest_kalman[1],
-            self.latest_kalman[2]
-        ])
-
-    def close(self):
-        self.csv_file.flush()
-        self.csv_file.close()
-        print(f'Log saved to {LOG_FILE}')
+SPIN_PWM = 10000      # of 65535 (~15%); hover needs roughly 38000+
+SPIN_SECONDS = 10.0
+MOTORS = ('m1', 'm2', 'm3', 'm4')
 
 
-# ---------------- Main ----------------
 def main():
     swarm = Crazyswarm()
     timeHelper = swarm.timeHelper
-    allcfs = swarm.allcfs
-    cf = allcfs.crazyflies[0]
+    cfs = swarm.allcfs.crazyflies
 
-    node = cf.node
-    logger = DroneLogger(node)
+    for cf in cfs:
+        print(f'arming {cf.prefix}')
+        cf.arm(True)
+    timeHelper.sleep(1.0)
 
     try:
-        for cf in allcfs.crazyflies:
-            cf.arm(True)
-            timeHelper.sleep(1.0)
-        timeHelper.sleep(2.0)
+        for cf in cfs:
+            print(f'spinning propellers on {cf.prefix} '
+                  f'at {SPIN_PWM}/65535 for {SPIN_SECONDS:.0f} s')
+            for m in MOTORS:
+                cf.setParam(f'motorPowerSet.{m}', SPIN_PWM)
+            cf.setParam('motorPowerSet.enable', 1)
 
-        allcfs.arm(False)
-        timeHelper.sleep(57.0)
-
+        timeHelper.sleep(SPIN_SECONDS)
     finally:
-        logger.close()
+        # Always stop the motors, even on Ctrl-C or a crash mid-spin.
+        for cf in cfs:
+            cf.setParam('motorPowerSet.enable', 0)
+            for m in MOTORS:
+                cf.setParam(f'motorPowerSet.{m}', 0)
+            cf.arm(False)
+        timeHelper.sleep(0.5)  # let the stop commands reach the radio
+    print('done')
+
 
 if __name__ == '__main__':
     main()

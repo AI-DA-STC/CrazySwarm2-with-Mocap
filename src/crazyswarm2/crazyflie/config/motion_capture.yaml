@@ -1,9 +1,9 @@
 /motion_capture_tracking:
   ros__parameters:
     # one of "optitrack", "optitrack_closed_source", "vicon", "qualisys", "nokov", "vrpn", "motionanalysis"
-    type: "optitrack_closed_source"
+    type: "optitrack" #"optitrack_closed_source"
     # Specify the hostname or IP of the computer running the motion capture software
-    hostname: "192.168.8.61"
+    hostname: "192.168.0.190" #"192.168.8.63"
 
     topics:
       frame_id: "world" #mocap

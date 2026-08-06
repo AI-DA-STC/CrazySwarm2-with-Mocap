@@ -181,7 +181,12 @@ class CrazyflieSIL:
             traj.t_begin = self.time_func()
             traj.timescale = timescale
             startfrom = self.cmdHl_pos
-            firm.plan_start_trajectory(self.planner, traj, reverse, relative, startfrom)
+            # Newer cffirmware bindings split `relative` into relative_position
+            # and relative_yaw and require the current position/yaw. Mirror the
+            # firmware's legacy start_trajectory handler: relative_yaw=False.
+            firm.plan_start_trajectory(
+                self.planner, traj, reverse, relative, False,
+                startfrom, self.cmdHl_yaw)
 
     # def notifySetpointsStop(self, remainValidMillisecs=100):
     #     # No-op - the real Crazyflie prioritizes streaming setpoints over

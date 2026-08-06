@@ -2,39 +2,66 @@
 fileversion: 3
 
 robots:
-  cf1:
-    enabled: false #false #true #false #true 
-    uri: radio://0/80/2M/E7E7E7E701
-    initial_position: [0.0, 0.0, 0.0]
-    type: cf21  # see robot_types
-    # firmware_params:
-    #   kalman:
-    #     pNAcc_xy: 1.0 # default 0.5
-    # firmware_logging:
-    #   enabled: true
-    #   custom_topics:
-    #     topic_name3: 
-    #       frequency: 1
-    #       vars: ["acc.x", "acc.y"]
-    # reference_frame: "odom_cf231" # use a custom reference frame if no global coordinate system is available
+  # cf1:
+  #   enabled: true #false #true #false #true 
+  #   uri: radio://0/80/2M/E7E7E7E701
+  #   initial_position: [-1.025, -1.028, 0.004]
+  #   type: cf21  # see robot_types
+  #   firmware_params:
+  #     kalman:
+  #       pNAcc_xy: 1.0 # default 0.5
+  #   firmware_logging:
+  #     enabled: true
+  #     custom_topics:
+  #       topic_name3: 
+  #         frequency: 1
+  #         vars: ["acc.x", "acc.y"]
+  #   reference_frame: "odom_cf231" # use a custom reference frame if no global coordinate system is available
 
-  cf2:
-    enabled: false #true #false #true #
-    uri: radio://0/80/2M/E7E7E7E702
-    initial_position: [0.0, 0.0, 0.0]
-    type: cf21  # see robot_types
-    # firmware_params:
-    #   kalman:
-    #     pNAcc_xy: 1.0 # default 0.5
-    #firmware_logging:
-    #  custom_topics:
-    #    topic_name3: 
-    #      frequency: 1
-    #      vars: ["acc.x", "acc.y", "acc.z"]
-    # reference_frame: "odom_cf5" 
+  # cf3:
+  #   enabled: true
+  #   # Dongle-0 partner of cf1 (same radio://0/80/2M pair for the 4-drone demo).
+  #   uri: radio://0/80/2M/E7E7E7E703
+  #   initial_position: [-0.84005, 0.9414, 0.0416]
+  #   type: cf21  # see robot_types
+
+  # cf6:
+  #   # DEAD ON RADIO 2026-08-04: silent on two full channel/datarate sweeps, at its
+  #   # own address AND factory E7E7E7E7E7. Needs physical check (battery/power/
+  #   # firmware). Do NOT re-enable until `scan --address 0xE7E7E7E706` answers —
+  #   # one unreachable drone wedges the whole server (no error, needs SIGKILL).
+  #   enabled: false
+  #   uri: radio://0/80/2M/E7E7E7E706
+  #   initial_position: [-0.75, 0.75, 0.0]
+  #   type: cf21  # see robot_types
+
+  # cf5:
+  #   enabled: true
+  #   # Takes cf6's corner while cf6 is down. Verified by scan 2026-08-04: alive on 80/2M.
+  #   uri: radio://0/80/2M/E7E7E7E705
+  #   initial_position: [-0.75, 0.75, 0.0]
+  #   type: cf21  # see robot_types
+
+  # cf2:
+  #   enabled: true
+  #   uri: radio://0/80/2M/E7E7E7E702
+  #   initial_position: [1.161, 0.8135, 0.0]
+  #   type: cf21  # see robot_types
+
+  # cf10:
+  #   enabled: true
+  #   uri: radio://0/80/2M/E7E7E7E710
+  #   initial_position: [0.985, -1.190, 0.0]
+  #   type: cf21  # see robot_types
+
+  # cf12:
+  #   enabled: true
+  #   uri: radio://0/80/2M/E7E7E7E712
+  #   initial_position: [ 0.0577, -0.084, 0.0227]
+  #   type: cf21  # see robot_types
 
   cf5:
-    enabled: true #false #true #false #true #
+    enabled: true #false #true #
     uri: radio://0/80/2M/E7E7E7E705
     initial_position: [0.0, 0.0, 0.0]
     type: cf21  # see robot_types
@@ -47,6 +74,32 @@ robots:
     #      frequency: 1
     #      vars: ["acc.x", "acc.y", "acc.z"]
     # reference_frame: "odom_cf5" 
+
+
+  # cf11:
+  #   enabled: false #true #false #true #
+  #   # Second dongle (radio://1/...) on channel 90 - 10 channels clear of cf1's 80.
+  #   # Two radios must be >=2 apart at 2M (a 2M channel is ~2 MHz wide), else
+  #   # crazyflie-link-cpp refuses the pair: see USBManager.cpp "Channels 80 and 81
+  #   # are already served by Crazyradio 0".
+  #   # DATARATE MUST MATCH THE DRONE. This one is set to 1M (verified by
+  #   # `scan --address 0xE7E7E7E711` -> radio://*/90/1M/...). A 2M URI here makes
+  #   # the server hang forever waiting for a drone that never answers, which also
+  #   # blocks the /all/* services from ever being created.
+  #   uri: radio://1/90/1M/E7E7E7E711
+  #   initial_position: [0.0, 0.0, 0.0]
+  #   type: cf21  # see robot_types
+  #   # firmware_params:
+  #   #   kalman:
+  #   #     pNAcc_xy: 1.0 # default 0.5
+  #   #firmware_logging:
+  #   #  custom_topics:
+  #   #    topic_name3: 
+  #   #      frequency: 1
+  #   #      vars: ["acc.x", "acc.y", "acc.z"]
+  #   # reference_frame: "odom_cf5" 
+
+
 
 
 # Definition of the various robot types

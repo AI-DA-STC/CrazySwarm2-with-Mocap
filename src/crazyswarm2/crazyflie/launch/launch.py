@@ -185,7 +185,6 @@ def generate_launch_description():
             executable='preflight_kalman_plotter.py',
             name='preflight_kalman_plotter',
             output='screen',
-            additional_env={'PYTHONNOUSERSITE': '1'},
             parameters=[{
                 "use_sim_time": PythonExpression(["'", LaunchConfiguration('backend'), "' == 'sim'"]),
             }]

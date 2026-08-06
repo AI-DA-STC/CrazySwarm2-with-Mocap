@@ -26,6 +26,11 @@ ros2 launch crazyflie launch.py backend:=sim
 ros2 launch crazyflie_examples launch.py script:=hello_world
 ```
 
+> Running the multi-drone trajectory demos against the sim **requires**
+> `--ros-args -p use_sim_time:=true` — the sim clock runs ~4x slower than wall
+> time and the script otherwise races ahead of the physics. See
+> [§B → Multi-drone trajectory demos](#multi-drone-trajectory-demos).
+
 RViz opens by default (`rviz:=false` to disable) and shows the simulated drone.
 The preflight GUI (section C) also opens by default; in sim there is no mocap so
 its mocap panels stay empty — pass `preflight:=False` if you don't want it.
@@ -75,11 +80,11 @@ The behaviour is set by a few values at the top of and inside
 
 | What | Where in the script | Default |
 |------|--------------------|---------|
-| **Takeoff duration** (time to climb) | `TAKEOFF_DURATION` | `10.0` s |
-| **Hover duration** (time held in the air) | `HOVER_DURATION` | `10.0` s |
+| **Takeoff duration** (time to climb) | `TAKEOFF_DURATION` | `5.0` s |
+| **Hover duration** (time held in the air) | `HOVER_DURATION` | `5.0` s |
 | **Hover height** (target altitude) | `cf.takeoff(targetHeight=0.5, ...)` | `0.5` m |
 | **Landing height** (touchdown target) | `cf.land(targetHeight=0.03, ...)` | `0.03` m |
-| **Landing duration** (time to descend) | `cf.land(..., duration=5.0)` | `5.0` s |
+| **Landing duration** (time to descend) | `cf.land(..., duration=3.0)` | `3.0` s |
 
 Reading the script: it builds a `Crazyswarm()`, grabs the first drone, then
 `arm(True)` → `takeoff(targetHeight, duration)` → `sleep(TAKEOFF + HOVER)` →
@@ -123,6 +128,92 @@ cause on this rig). See [TROUBLESHOOTING](TROUBLESHOOTING.md#mocap-pipeline).
 > the bridge separately: `ros2 launch natnet_ros2 natnet_ros2.launch.py` then
 > `python3 ~/CrazySwarm2/pose_bridge.py` (republishes per-body poses to `/poses`
 > at 50 Hz). The flight steps above are otherwise identical.
+
+### Multi-drone trajectory demos
+
+Two whole-fleet scripts (`crazyflie_examples`), both flown on this rig. Every
+enabled drone flies, so clear the preflight checklist for **all** of them and
+make sure each drone sits at **its own** `initial_position`
+([MOCAP §2b](MOCAP.md#2b-setting-initial_position-from-poses)) — wrong-corner
+placement means crossing `goTo` paths and caused a real collision 2026-08-04.
+
+```bash
+# in a second sourced terminal, with the server (terminal 1) running and the
+# preflight checklist cleared for every drone.
+# hardware — NO extra args
+ros2 run crazyflie_examples multi_trajectory
+ros2 run crazyflie_examples multi_trajectory_formation
+
+# simulation — the use_sim_time flag is REQUIRED (see the callout below)
+ros2 run crazyflie_examples multi_trajectory --ros-args -p use_sim_time:=true
+ros2 run crazyflie_examples multi_trajectory_formation --ros-args -p use_sim_time:=true
+```
+
+- **`multi_trajectory`** — arms, takes off to 1 m, every drone flies **only the
+  short `traj1.csv` (~25 s)** in formation (traj0 was dropped for a **~50 s
+  total flight**), then a return-to-home `goTo` (+0.75 m hover over each
+  drone's own `initial_position`) and a **slow 4 s landing**
+  (`targetHeight=0.04`). Because all drones fly the *same relative*
+  trajectory, the flight preserves the start separation — hence the ≥ 1 m
+  spacing rule.
+- **`multi_trajectory_formation`** — same start (arm, takeoff, move to the
+  start hover positions — it **no longer flies `traj1.csv`**; plain
+  `multi_trajectory` still does, unchanged), then a formation dance in six
+  phases:
+  1. **Formation waypoint tour** (3 waypoints + return, rigid group moves):
+     the same xy offset (`WAYPOINT_OFFSETS` = (0.6, 0), (−0.6, 0.5),
+     (0, −0.6), then back to (0, 0)) is applied to **every** drone's own
+     start hover position, so the group translates rigidly and the
+     separation stays exactly the start spacing (1.36 m with the current
+     yaml) on all four legs. Legs are distance-scaled
+     (`max(2.0, leg / 0.5)` s → 2.0/2.6/2.5/2.0 s); max excursion ~2.14 m
+     from `ROOM_CENTER`, inside the ~2.24 m orbit clearance.
+  2. **Gather** onto a regular **n-gon** (a pentagon with the 5-drone fleet)
+     of radius 0.8 m around the swarm center. The n-gon's phase offset is
+     auto-optimized before takeoff (1° sweep plus min-distance slot
+     assignment, maximizing the worst-case pairwise separation along the
+     simultaneous straight-line gather paths); adjacent slots sit 0.94 m
+     apart at n=5.
+  3. **Rotate** the n-gon a full **+360° in ONE continuous smooth motion**:
+     each drone flies an uploaded circle trajectory (id 1, **10 s**,
+     ~0.50 m/s tangential) that starts and ends at its own slot — **not**
+     stepped `goTo`s.
+  4. **Morph** onto a **triangle + tail-pair** formation (5 slots: apex, two
+     rear corners, two tail drones; min-distance assignment, no crossings).
+  5. **Orbit**: the whole formation translates rigidly onto a **1.2 m-radius
+     circle around the room center** `ROOM_CENTER` **(0.0467, −0.1037)** and
+     flies one full revolution (shared uploaded circle, id 2, **12 s**,
+     ~0.63 m/s tangential, ~0.33 m/s² centripetal — well inside the 1.3 m/s
+     envelope) — every drone flies the *same* circle with `relative=True`,
+     which makes it a rigid translation of the swarm. The shift onto the
+     ring is a long move, so its `goTo` duration is **distance-scaled**:
+     `max(2.0, longest_xy / 0.5)` s, i.e. ≤ 0.5 m/s average (~0.9 m/s
+     rest-to-rest peak); ~2.36 s with the current yaml starts.
+  6. **Return home via the pentagon**: a DIRECT return from the ring
+     crossed paths at R=2.0 (1 route crossing; at R=1.2 it happens to be
+     crossing-free, but the safe two-leg return is kept), so each drone
+     first **expands back onto its own gather-pentagon slot**
+     (distance-scaled `goTo`, ~2.50 s; verified 0 crossings, min
+     separation 0.84 m), then flies **home from the pentagon** — the
+     exact reverse of the gather (~2.0 s, min separation 0.84 m) — to its
+     own `initial_position` + 0.75 m, then a slow **4.5 s** land
+     (~0.16 m/s descent from the 0.75 m hover).
+
+  Verified numbers: **min separation 0.84 m** (tail-to-tail in the
+  triangle+tail formation); **CLEARANCE: the orbit sweeps up to ~2.24 m
+  from `ROOM_CENTER`** (1.2 m orbit radius + ~1.04 m formation extent;
+  shrank from ~3.05 m at the old 2.0 m ring) — keep the full
+  ~2.24 m-radius circle clear of people and obstacles; **≈ 58.0 s
+  takeoff → landed per trial**;
+  formation altitude a constant **1.0 m** (`FORM_HEIGHT`). Per drone the demo
+  uploads **12 trajectory pieces (6 rotation circle + 6 orbit circle;
+  traj1's 16 dropped with the opening pattern)** ≈ 1.6 KB of the firmware's
+  ~4 KB trajectory memory. Constants at the top of the script.
+
+> **Sim needs `use_sim_time`.** The sim clock runs ~4x slower than wall time
+> (no realtime pacing); without `--ros-args -p use_sim_time:=true` the script's
+> sleeps run on wall clock and it **races ahead of the physics** (commands fire
+> before the previous motion finished). On hardware run **without** the flag.
 
 ## C. Preflight GUI (preflight_kalman_plotter.py)
 
@@ -211,6 +302,50 @@ while recording, and the file is flushed every tick.
 
 ## D. Manual / teleop flight
 
+Two paths. **`teleop_xbox` is the one flown on this rig** — a geofenced
+position teleop with mocap safety interlocks; the upstream teleop node is kept
+as the alternative.
+
+### teleop_xbox (geofenced position teleop)
+
+```bash
+# terminal 1 — server WITHOUT the built-in teleop: only one process may own
+# the controller and the drone. teleop:=False also stops joy_node — the
+# script reads /dev/input/js0 directly, no joy_node needed.
+ros2 launch crazyflie launch.py teleop:=False
+
+# terminal 2 — fly the first enabled drone
+ros2 run crazyflie_examples teleop_xbox
+```
+
+Controls (Xbox layout): **A** = take off (to 0.5 m), **Back/View** = land,
+**B** = **EMERGENCY** — cuts motors instantly, the drone drops and needs a
+physical reset. Left stick moves horizontally, right stick Y is up/down,
+right stick X yaws, Ctrl-C lands then exits. The sticks steer a **position
+setpoint**, not velocity — release them and the drone holds position.
+
+Safety envelope (constants at the top of
+`crazyflie_examples/teleop_xbox.py`):
+
+| What | Where in the script | Default |
+|------|--------------------|---------|
+| **Geofence** (auto-land past this radius from (0,0)) | `FENCE_RADIUS` | `2.0` m |
+| **Target clamp** (sticks can't push the setpoint past this) | `TARGET_RADIUS` | `1.8` m |
+| **Height limits** (setpoint clamped) | `Z_MIN` / `Z_MAX` | `0.15` / `1.5` m |
+| **Mocap staleness → auto-land** | `POSE_TIMEOUT` | `0.5` s |
+| **Max setpoint lead over the measured position** (anti-windup) | `MAX_LEAD` | `0.8` m |
+
+It subscribes to `/poses` with **sensor QoS** (the topic is best-effort; a
+default reliable subscription silently receives *nothing*), refuses to take
+off without a fresh mocap pose for its drone, and treats a stale pose in
+flight as a fly-away risk (auto-land).
+
+> Verify the controller mapping **without flying anything**:
+> `ros2 run crazyflie_examples teleop_xbox --joytest` prints live axis/button
+> values straight off `/dev/input/js0`.
+
+### Built-in teleop (upstream)
+
 ```bash
 ros2 launch crazyflie launch.py backend:=cpp teleop:=True
 ```
@@ -228,6 +363,84 @@ ros2 service list | grep -E 'takeoff|land|go_to|arm'
 # battery / link health (status topic must be enabled in crazyflies.yaml)
 ros2 topic echo /cf1/status --once
 ros2 topic echo /cf1/connection_statistics --once
+```
+
+> **If the `/all/*` services (takeoff/land/arm/emergency) never appear**, the
+> server is **blocked forever, silently, on the first enabled drone that
+> doesn't answer radio** (it connects drones in lexicographic `std::map`
+> order). Any cause counts: a dead drone (cf6 went silent 2026-08-04), a wrong
+> address, or a **datarate mismatch** — learned the hard way with cf11 (a `2M`
+> URI on a drone whose radio runs at `1M`). No error is printed, and the hung
+> server needs SIGKILL. **Go/no-go rule: scan every enabled address before
+> every launch** (`ros2 run crazyflie scan --address 0xE7E7E7E7XX` — the
+> current enabled fleet is `0xE7E7E7E701`, `0xE7E7E7E702`, `0xE7E7E7E703`,
+> `0xE7E7E7E710`, `0xE7E7E7E714`) and fix
+> the URI or disable the drone in `config/crazyflies.yaml`. See
+> [TROUBLESHOOTING](TROUBLESHOOTING.md#crazyradio--drones) and — when running
+> two dongles — the rules in
+> [MOCAP §3c](MOCAP.md#3c-trim-drone-log-topics-to-protect-radio-bandwidth).
+
+### Prop-spin ground test (`arming` example)
+
+```bash
+ros2 run crazyflie_examples arming   # server must be running
+```
+
+Arms every enabled drone and spins all four propellers at **low PWM**
+(`SPIN_PWM = 10000`/65535, ~15% — hover needs roughly 38000+) for
+`SPIN_SECONDS = 10.0` s, then stops and disarms. A brushed CF2.1 does **not**
+idle-spin its props on arming (that's Bolt/brushless behavior), so this
+drives the firmware's motor-test params (`motorPowerSet.*`, the same path as
+cfclient's propeller test) for a visible motors-alive check. Motors are
+always stopped in a `finally:` block, even on Ctrl-C.
+
+> **Ground test only.** Props spin — keep the drone on the floor and fingers
+> clear. The PWM is far below hover thrust, so the drone stays put.
+
+### Color LED deck — status convention and manual control
+
+Drones carrying the bottom Color LED deck (`colorLedBot`) double as a status
+indicator. **Green LED = drone connected and ready for command. Red LED =
+drones are in flight / a script is controlling them.** In detail:
+
+- **Green** — connected and ready for command (the cpp server sets green on
+  connect; the drone is idle, no script owns it).
+- **Red** — in flight / under script control (`Crazyswarm()` turns the deck
+  red for its lifetime; an `atexit` hook in `crazyswarm_py.py` restores green
+  on exit — normal return, exception, or Ctrl-C).
+- **Dark** — clean server shutdown (the server switches the LED off on
+  disconnect; after a hard link loss it keeps its last color instead).
+
+Manual control, two equivalent front-ends (number keys:
+`0`=off `1`=green `2`=red `3`=yellow `4`=blue `5`=purple `9`=white):
+
+```bash
+./scripts/led.sh 3                        # one-shot: yellow, then exit
+./scripts/led.sh                          # interactive: press number keys, q quits
+ros2 run crazyflie_examples color_led 3   # same key map / color names
+```
+
+Both set the firmware param `colorLedBot.wrgb8888` (uint32 packed
+`0xWWRRGGBB`) on every connected drone. They deliberately avoid
+`Crazyswarm()`: `led.sh` goes through the **`ros2` CLI daemon** (`ros2 param
+set`), which keeps the ROS graph warm, while `color_led` calls the server's
+`/crazyflie_server/set_parameters` service directly — on this rig fresh rclpy
+processes can stall in DDS discovery and `Crazyswarm()` hangs waiting on
+`all/emergency` (see [TROUBLESHOOTING](TROUBLESHOOTING.md#ros-2--dds--parameters)).
+
+### Runtime firmware parameters
+
+`ros2 param set` now **reliably reaches the drones** — the vendored
+`server.cpp` applies `<cf>.params.*` / `all.params.*` changes in an
+on-set-parameters callback that runs synchronously inside the service call
+(upstream's `/parameter_events` handler never saw the node's own events on
+this rig, so runtime changes silently never left the PC). With
+`firmware_params.query_all_values_on_connect: True` in `config/server.yaml`,
+every firmware param is exposed at connect:
+
+```bash
+ros2 param set /crazyflie_server cf1.params.ring.effect 7   # per drone
+ros2 param set /crazyflie_server all.params.kalman.resetEstimation 1   # broadcast
 ```
 
 ### Viewing a drone's topics (ROS_DOMAIN_ID)
