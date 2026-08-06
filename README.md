@@ -230,26 +230,28 @@ ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 The source (and its config) is vendored, so **edit files directly in `src/`** and
 commit — a fresh clone then reproduces your exact rig. Key files:
 
-- `src/crazyswarm2/crazyflie/config/crazyflies.yaml` — drone list, URIs, types,
+- [`src/crazyswarm2/crazyflie/config/crazyflies.yaml`](src/crazyswarm2/crazyflie/config/crazyflies.yaml) — drone list, URIs, types,
   firmware logging, and each drone's `initial_position` (update it from `/poses`
   whenever a drone moves — procedure in
   [docs/MOCAP.md → Section 2b](docs/MOCAP.md#2b-setting-initial_position-from-poses)).
-- `src/crazyswarm2/crazyflie/config/motion_capture.yaml` — Motive hostname/IP, markers, QoS.
-- `src/crazyswarm2/crazyflie/config/server.yaml` — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
-- `src/crazyswarm2/crazyflie/config/teleop.yaml` — gamepad mapping.
-- `src/crazyswarm2/crazyflie/launch/launch.py` — customized (adds the **foxglove_bridge**
+- [`src/crazyswarm2/crazyflie/config/motion_capture.yaml`](src/crazyswarm2/crazyflie/config/motion_capture.yaml) — Motive hostname/IP, markers, QoS — interface-dependent `hostname`/`type`: see [MOCAP Section 5](docs/MOCAP.md#5-networking-mocap-over-a-router-lab-setup).
+- [`src/crazyswarm2/crazyflie/config/server.yaml`](src/crazyswarm2/crazyflie/config/server.yaml) — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
+- [`src/crazyswarm2/crazyflie/config/teleop.yaml`](src/crazyswarm2/crazyflie/config/teleop.yaml) — gamepad mapping
+  (see [docs/RUNNING.md → Section D](docs/RUNNING.md#d-manual--teleop-flight)).
+- [`src/crazyswarm2/crazyflie/launch/launch.py`](src/crazyswarm2/crazyflie/launch/launch.py) — customized (adds the **foxglove_bridge**
   and **preflight GUI** nodes; `rviz` default `True`, `gui` default `False`).
-- `src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py` — the preflight GUI
-  (thresholds and takeoff/land setpoints are constants at the top).
+- [`src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py`](src/crazyswarm2/crazyflie/scripts/preflight_kalman_plotter.py) — the preflight GUI
+  (thresholds and takeoff/land setpoints are constants at the top; see
+  [docs/RUNNING.md → Section C](docs/RUNNING.md#c-preflight-gui-preflight_kalman_plotterpy)).
 
-`pose_bridge.py` `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
+[`pose_bridge.py`](pose_bridge.py) `DRONES` and `PUBLISH_HZ` must match `crazyflies.yaml` and the
 Motive streaming rate — see [docs/MOCAP.md](docs/MOCAP.md).
 
-> **Heads-up:** `pose_bridge.py` currently lists `DRONES = ['cf1', 'cf2']`,
+> **Heads-up:** [`pose_bridge.py`](pose_bridge.py) currently lists `DRONES = ['cf1', 'cf2']`,
 > which no longer matches the enabled fleet (`cf1`, `cf2`, `cf3`, `cf10`,
 > `cf14`) — update it before using the alternative natnet_ros2 mocap path.
 
-After editing anything in `src/`, rebuild: `./scripts/build.sh` (or just the
+After editing anything in `src/`, rebuild: [`./scripts/build.sh`](scripts/build.sh) (or just the
 changed package, e.g. `./scripts/build.sh crazyflie`).
 
 ## 5. Preflight checks
