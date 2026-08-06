@@ -228,5 +228,5 @@ drones and laptops joining the **same subnet over 5 GHz Wi-Fi**:
 
 ST Engineering staff: full router details (credentials, IP plan, photos) are in
 the private repo:
-[groundcontrol-router-setup](https://github.com/AI-DA-STC/groundcontrol-router-setup)
+[Mocap_QC_Ground_Control_Router_Information](https://github.com/AI-DA-STC/Mocap_QC_Ground_Control_Router_Information)
 (TODO: confirm link once published).
