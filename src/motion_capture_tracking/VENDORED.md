@@ -22,7 +22,19 @@ Building from this tree gives Ubuntu 22.04 / Humble and 24.04 / Jazzy the same
 working parser. `scripts/install_deps.sh` removes the apt package so it cannot
 shadow this build.
 
-## Local patch applied on top of upstream
+## Local patches applied on top of upstream
+
+`patches/0004-node-humble-compatible-tf-broadcaster.patch` — upstream commit
+`a17396d` ("fix build error on rolling") constructs the TF broadcaster through
+`rclcpp::node_interfaces::NodeInterfaces`. That API reached Humble only in the
+2025-12 backport, so a 22.04 laptop whose `ros-humble-rclcpp` predates it
+fails with `rclcpp/node_interfaces/node_interfaces.hpp: No such file or
+directory`. We target Humble + Jazzy, not Rolling, so the vendored node keeps
+the classic `tf2_ros::TransformBroadcaster(node)` constructor. Applies with:
+
+    git apply --directory=src/motion_capture_tracking \
+        src/motion_capture_tracking/patches/0004-node-humble-compatible-tf-broadcaster.patch
+
 
 `patches/0003-libmotioncapture-natnet-4.2-modeldef-segfault.patch`
 (copied into this directory) — for NatNet >= 4.1 use each dataset's
@@ -35,6 +47,8 @@ Applies with:
 
 ## Updating
 
-Re-clone upstream at a newer commit, re-apply the patch, verify
+Re-clone upstream at a newer commit, re-apply both patches, verify
 `grep -r 141.23.110.162 motion_capture_tracking/deps/libmotioncapture/src`
-prints nothing, strip `.git` entries, rebuild, and confirm `/poses` streams.
+prints nothing, strip `.git` entries, rebuild on BOTH a 22.04/Humble and a
+24.04/Jazzy machine (a stock `ros:humble` Docker image is enough for the build
+check), and confirm `/poses` streams.

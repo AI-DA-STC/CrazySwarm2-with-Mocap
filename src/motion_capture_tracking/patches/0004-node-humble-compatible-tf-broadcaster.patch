@@ -1,0 +1,34 @@
+--- a/motion_capture_tracking/src/motion_capture_tracking_node.cpp
++++ b/motion_capture_tracking/src/motion_capture_tracking_node.cpp
+@@ -4,10 +4,13 @@
+ 
+ // ROS
+ #include <rclcpp/rclcpp.hpp>
+-#include "rclcpp/node_interfaces/node_interfaces.hpp"
+-#include "rclcpp/node_interfaces/get_node_parameters_interface.hpp"
+-#include "rclcpp/node_interfaces/get_node_topics_interface.hpp"
+-#include "tf2_ros/transform_broadcaster.h"
++// Vendored change (CrazySwarm2-with-Mocap): upstream a17396d switched the TF
++// broadcaster to rclcpp::node_interfaces::NodeInterfaces to fix a Rolling build.
++// That API reached Humble only in the 2025-12 backport (rclcpp >= 16.0.1x), so
++// lab laptops with an older ros-humble-rclcpp fail with
++// "rclcpp/node_interfaces/node_interfaces.hpp: No such file". We target Humble
++// and Jazzy, not Rolling, so keep the classic constructor (works on both).
++#include <tf2_ros/transform_broadcaster.h>
+ #include <sensor_msgs/msg/point_cloud2.hpp>
+ #include <motion_capture_tracking_interfaces/msg/named_pose_array.hpp>
+ #include <motion_capture_tracking_interfaces/msg/named_pose_array_v2.hpp>
+@@ -220,12 +223,7 @@
+   tracker.setLogWarningCallback(std::bind(logWarn, node->get_logger(), std::placeholders::_1));
+ 
+   // prepare TF broadcaster
+-  tf2_ros::TransformBroadcaster tfbroadcaster(
+-        rclcpp::node_interfaces::NodeInterfaces<
+-          rclcpp::node_interfaces::NodeParametersInterface,
+-          rclcpp::node_interfaces::NodeTopicsInterface>(
+-            node->get_node_parameters_interface(),
+-            node->get_node_topics_interface()));
++  tf2_ros::TransformBroadcaster tfbroadcaster(node);
+   std::vector<geometry_msgs::msg::TransformStamped> transforms;
+ 
+   pcl::PointCloud<pcl::PointXYZ>::Ptr markers(new pcl::PointCloud<pcl::PointXYZ>);
