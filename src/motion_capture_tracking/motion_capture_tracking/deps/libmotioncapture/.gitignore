@@ -1,0 +1,12 @@
+build/*
+.vscode/
+dist/
+.cache
+compile_commands.json
+
+*.so
+*.egg-info/
+*.whl
+
+# vendored copy: keep the bundled NatNet SDK binaries
+!deps/NatNetSDKCrossplatform/lib/**/*.so

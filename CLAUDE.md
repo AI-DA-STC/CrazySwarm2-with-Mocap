@@ -43,6 +43,8 @@ the natnet_ros2 + `pose_bridge.py` path is an alternative, not the default.
 src/                # VENDORED source (committed)
   crazyswarm2/        # customized: configs, launch.py (foxglove node), scripts, examples
   natnet_ros2/        # OptiTrack driver (+ vendored NatNetSDK)
+  motion_capture_tracking/  # VENDORED mocap driver: IMRCLab ros2@64d3af2 + NatNet-4.2 modeldef patch.
+                            # NEVER apt-install it: apt 1.0.9 hard-codes IP 141.23.110.162 → no /poses (VENDORED.md)
 scripts/
   setup.sh            # install_deps + build (source already present)
   install_deps.sh     # distro-aware apt + rosdep + pip
@@ -150,8 +152,9 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
   and hangs silently in libmotioncapture `connect()` (no crash, not in
   `ros2 node list`). Diagnose `ss -uanp | grep :1511`; kill the orphan and
   relaunch. Ping to the Motive PC proves nothing (unicast ≠ multicast).
-- **Motive transmission type is read once at connect** (apt
-  `motion_capture_tracking` requires Multicast) — after changing it, fully
+- **Motive transmission type is read once at connect** (the vendored
+  `motion_capture_tracking` requires Multicast or Broadcast Frame Data; never
+  install the apt package — 1.0.9 hard-codes a foreign interface IP) — after changing it, fully
   restart the launch. A frozen mocap node ignores SIGINT (blocked in `recv`);
   launch escalates to SIGKILL — check `pgrep -f motion_capture_tracking` for
   leftovers (they make the next connect SIGABRT).

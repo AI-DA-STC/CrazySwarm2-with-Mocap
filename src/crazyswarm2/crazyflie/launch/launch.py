@@ -1,6 +1,6 @@
 import os
 import yaml
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix, PackageNotFoundError
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch_ros.actions import Node
@@ -8,7 +8,43 @@ from launch.conditions import LaunchConfigurationEquals
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 
+def _mocap_enabled(context):
+    backend = LaunchConfiguration('backend').perform(context)
+    mocap = LaunchConfiguration('mocap').perform(context)
+    return backend != 'sim' and mocap.lower() in ('true', '1')
+
+
+def check_vendored_mocap_driver(context):
+    """Abort the launch if motion_capture_tracking would come from apt.
+
+    The apt release 1.0.9 (Humble; queued for Jazzy) hard-codes a foreign
+    interface IP (141.23.110.162) into the NatNet socket code: the node either
+    aborts with exit -6 or publishes an empty /poses forever. This repo vendors
+    a fixed copy in src/motion_capture_tracking (see its VENDORED.md); the
+    workspace build must be the one that resolves in this shell.
+    """
+    if not _mocap_enabled(context):
+        return
+    try:
+        prefix = get_package_prefix('motion_capture_tracking')
+    except PackageNotFoundError:
+        raise RuntimeError(
+            "motion_capture_tracking not found. It is vendored in "
+            "src/motion_capture_tracking: run ./scripts/build.sh and then "
+            "`source install/setup.bash` in this shell (or launch with mocap:=False).")
+    if prefix.startswith('/opt/ros'):
+        raise RuntimeError(
+            f"motion_capture_tracking resolves to the apt package at {prefix}. "
+            "apt 1.0.9 hard-codes interface IP 141.23.110.162 and never receives "
+            "NatNet frames, so /poses would stay silent. This repo vendors a fixed "
+            "copy in src/motion_capture_tracking: run ./scripts/build.sh, "
+            "`source install/setup.bash` in THIS shell, and remove the apt copy "
+            "(sudo apt remove ros-$ROS_DISTRO-motion-capture-tracking "
+            "ros-$ROS_DISTRO-motion-capture-tracking-interfaces).")
+
+
 def parse_yaml(context):
+    check_vendored_mocap_driver(context)
     # Load the crazyflies YAML file
     crazyflies_yaml = LaunchConfiguration('crazyflies_yaml_file').perform(context)
     with open(crazyflies_yaml, 'r') as file:
@@ -64,7 +100,7 @@ def parse_yaml(context):
         Node(
             package='motion_capture_tracking',
             executable='motion_capture_tracking_node',
-            condition=IfCondition(PythonExpression(["'", LaunchConfiguration('backend'), "' != 'sim' and '", LaunchConfiguration('mocap'), "' == 'True'"])),
+            condition=IfCondition(PythonExpression(["'", LaunchConfiguration('backend'), "' != 'sim' and '", LaunchConfiguration('mocap'), "'.lower() in ('true', '1')"])),
             name='motion_capture_tracking',
             output='screen',
             parameters= [motion_capture_params],

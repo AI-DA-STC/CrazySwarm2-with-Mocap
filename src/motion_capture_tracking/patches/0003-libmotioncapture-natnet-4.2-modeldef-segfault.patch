@@ -1,0 +1,40 @@
+diff --git a/src/optitrack.cpp b/src/optitrack.cpp
+index a111e98..a1e698e 100644
+--- a/src/optitrack.cpp
++++ b/src/optitrack.cpp
+@@ -130,9 +130,33 @@ namespace libmotioncapture {
+ 
+           if ((major == 4 && minor >= 1) || major > 4)
+           {
+-            // If the NatNet version is 4.1 or greater, next four bytes represent
+-            // the number of bytes in the dataset. Just skip them.
++            // NatNet >= 4.1: next four bytes are the dataset's byte count.
++            // Use it as the authoritative dataset boundary instead of
++            // field-by-field walking (whose layout assumptions no longer
++            // hold for 4.2 and misalign the pointer, running strlen off
++            // the buffer). Only rigid-body header fields are read; they
++            // are at the same offsets in all versions. Marker/skeleton
++            // details were never stored anyway.
+             memcpy(&description_size, ptr, 4); ptr += 4;
++            const char* next_dataset = ptr + description_size;
++
++            if (type == 1)  // rigid body: name, ID, parentID, offsets
++            {
++              char szName[MAX_NAMELENGTH];
++              strcpy(szName, ptr);
++              ptr += strlen(ptr) + 1;
++
++              int ID = 0; memcpy(&ID, ptr, 4); ptr += 4;
++              rigidBodyDefinitions[ID].name = szName;
++              rigidBodyDefinitions[ID].ID = ID;
++              memcpy(&rigidBodyDefinitions[ID].parentID, ptr, 4); ptr += 4;
++              memcpy(&rigidBodyDefinitions[ID].xoffset, ptr, 4); ptr += 4;
++              memcpy(&rigidBodyDefinitions[ID].yoffset, ptr, 4); ptr += 4;
++              memcpy(&rigidBodyDefinitions[ID].zoffset, ptr, 4); ptr += 4;
++            }
++
++            ptr = next_dataset;
++            continue;
+           }
+ 
+           if(type == 0)   // markerset

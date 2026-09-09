@@ -41,13 +41,18 @@ sudo apt-get update
 sudo apt-get install -y \
   git cmake build-essential wget tar unzip \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
-  libusb-1.0-0-dev libboost-program-options-dev libeigen3-dev \
+  libusb-1.0-0-dev libboost-program-options-dev libboost-system-dev libeigen3-dev \
   ros-"${ROS_DISTRO}"-tf-transformations \
-  ros-"${ROS_DISTRO}"-motion-capture-tracking || {
-    echo "WARN: ros-${ROS_DISTRO}-motion-capture-tracking not available via apt."
-    echo "      Clone it into src/ and rebuild:"
-    echo "      git clone --branch ros2 --recursive https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking"
-  }
+  ros-"${ROS_DISTRO}"-joy ros-"${ROS_DISTRO}"-rviz2
+
+# motion_capture_tracking is VENDORED in src/motion_capture_tracking (see its
+# VENDORED.md). The apt release 1.0.9 (Humble today, Jazzy soon) hard-codes a
+# foreign interface IP into the NatNet socket code, so the node dies or never
+# receives frames on any lab laptop. Remove any apt copy so it cannot shadow
+# the workspace build; rosdep below installs its real deps (pcl, eigen, ...).
+sudo apt-get remove -y \
+  ros-"${ROS_DISTRO}"-motion-capture-tracking \
+  ros-"${ROS_DISTRO}"-motion-capture-tracking-interfaces 2>/dev/null || true
 
 # natnet_ros2's undeclared find_package deps. These ship with ros-<distro>-desktop,
 # so use --no-upgrade: install if missing, but never try to UPGRADE an already-

@@ -47,7 +47,7 @@ dependencies and builds it on **Ubuntu 22.04 + ROS 2 Humble** or
 |-----------|--------|------|
 | `crazyswarm2` | github.com/IMRCLab/crazyswarm2 | Crazyflie swarm server, sim, examples, Python API |
 | `natnet_ros2` | github.com/L2S-lab/natnet_ros2 | OptiTrack / NatNet driver |
-| `motion_capture_tracking` | apt (`rosdep`) | Converts mocap data → `/poses` for the server |
+| `motion_capture_tracking` | **vendored** in `src/motion_capture_tracking` (IMRCLab `ros2@64d3af2` + NatNet 4.2 patch — see [VENDORED.md](src/motion_capture_tracking/VENDORED.md); never the apt package) | Converts mocap data → `/poses` for the server |
 | `pose_bridge.py` | this repo | Aggregates per-body poses into `NamedPoseArray` |
 | `preflight_kalman_plotter.py` | this repo (`src/crazyswarm2/crazyflie/scripts/`) | Preflight GUI — per-drone go/no-go checks before flight |
 | `src/` (vendored) | this repo | Customized crazyswarm2 + natnet_ros2 (configs, launch.py, scripts) |
@@ -116,14 +116,14 @@ echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
 ### Step 2 — Clone and run the one-shot setup
 
 ```bash
-git clone https://github.com/jeremyCHH/CrazySwarm2.git ~/CrazySwarm2
+git clone https://github.com/AI-DA-STC/CrazySwarm2-with-Mocap.git ~/CrazySwarm2
 cd ~/CrazySwarm2
 ./scripts/setup.sh
 ```
 
 The source is already in `src/`, so `setup.sh` just:
 
-1. `scripts/install_deps.sh` — apt deps + `rosdep install` (pulls `motion_capture_tracking`).
+1. `scripts/install_deps.sh` — apt deps + `rosdep install`. Also **removes** any apt `ros-<distro>-motion-capture-tracking`: the driver is vendored in `src/` because the apt 1.0.9 release hard-codes a foreign interface IP and never receives frames on lab laptops.
 2. `scripts/build.sh` — `colcon build --symlink-install` at the repo root.
 
 Re-run any step on its own later:
@@ -134,6 +134,35 @@ Re-run any step on its own later:
 ./scripts/build.sh crazyflie     # rebuild one package
 LOW_MEM=1 ./scripts/build.sh     # serial build on low-RAM machines
 ```
+
+`setup.sh` ends with a verification step and refuses to report success unless
+`motion_capture_tracking` resolves to **this repo's** `install/` and the binary
+is the vendored, fixed copy. If it prints an `ERROR`, fix that before going on.
+
+#### Upgrading an existing clone (mocap driver vendored, September 2026)
+
+If you cloned before the driver was vendored, do this **once** — otherwise your
+laptop keeps running the apt driver and `/poses` stays silent even though the
+Motive PC pings:
+
+```bash
+cd ~/CrazySwarm2
+rm -rf src/motion_capture_tracking     # only if you cloned it there by hand (old fallback advice)
+git pull
+sudo apt remove -y ros-${ROS_DISTRO}-motion-capture-tracking ros-${ROS_DISTRO}-motion-capture-tracking-interfaces
+rm -rf build install log               # the old build was linked against the apt interfaces package
+./scripts/setup.sh                     # must end with "OK: motion_capture_tracking from .../install/..."
+```
+
+Then, in every shell you use, `source install/setup.bash` again. Quick check
+at any time:
+
+```bash
+ros2 pkg prefix motion_capture_tracking   # must be inside this repo's install/, never /opt/ros
+```
+
+`launch.py` performs the same check and aborts with a clear message if the apt
+copy would be used, so a wrong shell cannot silently fly without mocap.
 
 > **⚠️ Install these too — `install_deps.sh` does not cover them yet.** The
 > default launch and the Python API need a few extra packages:
@@ -204,10 +233,12 @@ ros2 launch crazyflie launch.py backend:=sim   # needs Step 4; no hardware/mocap
 > source install/setup.bash
 > ```
 >
-> **Notes.** If `rosdep` can't find `motion-capture-tracking` on your distro, clone
-> it into `src/` (`git clone --branch ros2 --recursive
-> https://github.com/IMRCLab/motion_capture_tracking.git src/motion_capture_tracking`)
-> and rebuild. On low-RAM machines use `LOW_MEM=1 ./scripts/build.sh`.
+> **Notes.** Do **not** `apt install ros-<distro>-motion-capture-tracking` — the
+> driver is vendored in `src/motion_capture_tracking` (apt 1.0.9 is broken, see its
+> [VENDORED.md](src/motion_capture_tracking/VENDORED.md)); if it is already installed,
+> `sudo apt remove` it so it cannot shadow the workspace build, then verify
+> `ros2 pkg prefix motion_capture_tracking` points into `install/`. On low-RAM
+> machines use `LOW_MEM=1 ./scripts/build.sh`.
 
 ## 4. Configuring your fleet
 

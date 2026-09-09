@@ -122,7 +122,9 @@ log topics so the 2 Mbit/s radio is not maxed out.
 2. Make sure **Broadcast Frame Data** is enabled and the NatNet streaming engine
    is on (turn off VRPN/Trackd if unused).
 3. Set the **data signal / transmission type** to **Multicast** (not Unicast).
-   The apt `motion_capture_tracking` requires the multicast stream
+   The vendored `motion_capture_tracking` accepts the multicast stream (and
+   Motive's **Broadcast Frame Data** variant, which is what this rig actually
+   sends); it does **not** support Unicast
    (this repo uses `type: "optitrack"`, the open parser, in
    `config/motion_capture.yaml` — see Section 5 for why). The
    transmission type is read **once at connect** — after changing it in Motive,
@@ -211,9 +213,13 @@ rebuild:
 - The number of **drones** is unaffected by the choice: all rigid bodies ride
   in every NatNet frame either way, and the drones themselves get their poses
   over the Crazyradio, not the network.
-- The apt `motion_capture_tracking` path used by `launch.py` requires
-  **Multicast**. The vendored `natnet_ros2` path supports unicast (its
-  `serverType` param) if the LAN ever can't do multicast.
+- The vendored `motion_capture_tracking` path used by `launch.py` (open
+  `optitrack` parser, socket bound to `0.0.0.0:1511`) hears **Multicast** and
+  Motive's **Broadcast Frame Data** (this rig: frames go to `255.255.255.255:1511`
+  even though the Motive GUI says Multicast, because the profile flag
+  `BroadcastInsteadOfMulticast` is set). It does **not** support Unicast. The
+  `natnet_ros2` / closed-source NatNet SDK client binds the group address and is
+  **deaf to broadcast** — that is why it sees nothing on this rig.
 
 ## 5. Networking: mocap over a router (lab setup)
 
