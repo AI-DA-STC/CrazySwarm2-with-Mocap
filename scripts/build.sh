@@ -28,9 +28,24 @@ source "/opt/ros/${ROS_DISTRO}/setup.bash"
 set -u
 echo "==> Building against ROS 2 ${ROS_DISTRO}"
 
-COLCON_ARGS=(--symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release)
+# A conda / venv Python on PATH makes CMake and rosidl build the Python message
+# bindings for the WRONG interpreter (e.g. cpython-312 .so files on a 22.04 box
+# whose `ros2` CLI runs /usr/bin/python3.10). The C++ nodes still work, but every
+# `ros2 topic echo` of a workspace message then fails with
+# "The message type '.../NamedPoseArray' is invalid". Build with the system Python.
+if [[ -n "${CONDA_PREFIX:-}${VIRTUAL_ENV:-}" || "$(command -v python3)" != "/usr/bin/python3" ]]; then
+  echo "WARN: python3 is $(command -v python3) (CONDA_PREFIX='${CONDA_PREFIX:-}', VIRTUAL_ENV='${VIRTUAL_ENV:-}')."
+  echo "      Stripping conda/venv from PATH for this build so ROS bindings target /usr/bin/python3."
+  PATH="$(echo "${PATH}" | tr ':' '\n' | grep -v -E 'conda|/\.?venv/' | paste -sd:)"; export PATH
+  # keep ROS entries on PYTHONPATH (colcon's ament extensions need them); drop conda/venv ones
+  PYTHONPATH="$(echo "${PYTHONPATH:-}" | tr ':' '\n' | grep -v -E '^$|conda|/\.?venv/' | paste -sd:)"; export PYTHONPATH
+  unset CONDA_PREFIX CONDA_DEFAULT_ENV VIRTUAL_ENV PYTHONHOME
+fi
+PY_ARGS=(-DPython3_EXECUTABLE=/usr/bin/python3 -DPYTHON_EXECUTABLE=/usr/bin/python3)
+
+COLCON_ARGS=(--symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release "${PY_ARGS[@]}")
 if [[ -n "${LOW_MEM:-}" ]]; then
-  COLCON_ARGS=(--symlink-install --parallel-workers 2 --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release)
+  COLCON_ARGS=(--symlink-install --parallel-workers 2 --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release "${PY_ARGS[@]}")
   export MAKEFLAGS="-j2"
   echo "==> LOW_MEM mode (serial, -j2)"
 fi

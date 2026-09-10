@@ -68,6 +68,11 @@ sudo apt-get install -y --no-upgrade \
 # (otherwise every launch logs an error trying to start it). View via Foxglove Studio.
 sudo apt-get install -y ros-"${ROS_DISTRO}"-foxglove-bridge || true
 
+# Preflight GUI on 22.04: pip cfclient pulls PyQt6 >= 6.5, whose xcb platform
+# plugin needs libxcb-cursor0 (not installed by default on jammy). Without it the
+# preflight node dies at start with "Could not load the Qt platform plugin xcb".
+sudo apt-get install -y libxcb-cursor0 python3-tk || true
+
 # Optional: PyQt5 for natnet_ros2's GUI helper (helper_node_r2.py). Not needed for flight.
 sudo apt-get install -y python3-pyqt5 || true
 
