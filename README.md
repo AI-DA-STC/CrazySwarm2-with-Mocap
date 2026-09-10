@@ -249,7 +249,7 @@ commit — a fresh clone then reproduces your exact rig. Key files:
   firmware logging, and each drone's `initial_position` (update it from `/poses`
   whenever a drone moves — procedure in
   [docs/MOCAP.md → Section 2b](docs/MOCAP.md#2b-setting-initial_position-from-poses)).
-- [`src/crazyswarm2/crazyflie/config/motion_capture.yaml`](src/crazyswarm2/crazyflie/config/motion_capture.yaml) — Motive hostname/IP, markers, QoS — interface-dependent `hostname`/`type`: see [MOCAP Section 5](docs/MOCAP.md#5-networking-mocap-over-a-router-lab-setup).
+- [`src/crazyswarm2/crazyflie/config/motion_capture.yaml`](src/crazyswarm2/crazyflie/config/motion_capture.yaml) — Motive address, markers, QoS. `hostname: "auto"` (the default) makes `launch.py` find the Motive PC with a NatNet discovery ping, so DHCP drift on the lab LAN no longer matters; override any time with `mocap_hostname:=<ip>` or `export CRAZYSWARM_MOCAP_HOST=<ip>`: see [MOCAP Section 5](docs/MOCAP.md#5-networking-mocap-over-a-router-lab-setup).
 - [`src/crazyswarm2/crazyflie/config/server.yaml`](src/crazyswarm2/crazyflie/config/server.yaml) — warning thresholds, sim backend/controller, `query_all_values_on_connect` (keep `True` — LED control needs the full param list at connect).
 - [`src/crazyswarm2/crazyflie/config/teleop.yaml`](src/crazyswarm2/crazyflie/config/teleop.yaml) — gamepad mapping
   (see [docs/RUNNING.md → Section D](docs/RUNNING.md#d-manual--teleop-flight)).

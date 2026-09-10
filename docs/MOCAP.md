@@ -243,8 +243,16 @@ and never join the subnet (Section 4):
 direct LAN **changes the Motive PC's address**, so `config/motion_capture.yaml`
 must be updated to match:
 
-- **`hostname:`** — the Motive PC's **current** IP on the interface you are
-  using (the Wi-Fi and LAN addresses differ).
+- **`hostname:`** — leave it at `"auto"`: at launch, `launch.py` broadcasts a
+  NatNet discovery ping on UDP 1510 and uses whichever Motive answers, logging
+  `mocap: Motive at <ip> (from NatNet discovery)`. The lab Motive PC gets its
+  address from DHCP and has moved several times (.100 → .124 → .152); every
+  move used to leave `/poses` silent. If discovery fails, the launch **aborts
+  with a message** instead of hanging. To pin an address without editing the
+  file: `ros2 launch crazyflie launch.py mocap_hostname:=<ip>` or
+  `export CRAZYSWARM_MOCAP_HOST=<ip>`. Discovery needs you on the Motive PC's
+  LAN segment (broadcast does not cross routers) — `ip route get <ip>` must
+  not say `via`.
 - **`type: "optitrack"`** (the open parser) is **REQUIRED on Wi-Fi** — the
   closed-source parser wedges **permanently** on a Wi-Fi multicast stall and
   never recovers.

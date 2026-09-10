@@ -152,6 +152,11 @@ Supported: **Ubuntu 22.04 + Humble** and **24.04 + Jazzy** (auto-detected from
   and hangs silently in libmotioncapture `connect()` (no crash, not in
   `ros2 node list`). Diagnose `ss -uanp | grep :1511`; kill the orphan and
   relaunch. Ping to the Motive PC proves nothing (unicast ≠ multicast).
+- **Motive address:** `motion_capture.yaml` `hostname: "auto"` → `launch.py`
+  discovers the Motive PC via a NatNet ping broadcast on UDP 1510 (lab DHCP
+  drifts: .100 → .124 → .152). Override: `mocap_hostname:=<ip>` launch arg or
+  `CRAZYSWARM_MOCAP_HOST`. Must be an IPv4 literal; the launch aborts loudly if
+  nothing answers instead of the node hanging silently.
 - **Motive transmission type is read once at connect** (the vendored
   `motion_capture_tracking` requires Multicast or Broadcast Frame Data; never
   install the apt package — 1.0.9 hard-codes a foreign interface IP) — after changing it, fully

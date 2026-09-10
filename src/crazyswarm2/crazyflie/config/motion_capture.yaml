@@ -2,8 +2,13 @@
   ros__parameters:
     # one of "optitrack", "optitrack_closed_source", "vicon", "qualisys", "nokov", "vrpn", "motionanalysis"
     type: "optitrack" #"optitrack_closed_source"
-    # Specify the hostname or IP of the computer running the motion capture software
-    hostname: "192.168.0.190" #"192.168.8.63"
+    # IPv4 of the PC running Motive. "auto" = launch.py finds it with a NatNet
+    # discovery ping (UDP 1510 broadcast) — use this in the lab, where the Motive
+    # PC's DHCP address has drifted (.100 → .124 → .152) and each drift silently
+    # killed /poses. Override without editing this file:
+    #   ros2 launch crazyflie launch.py mocap_hostname:=192.168.9.152
+    #   export CRAZYSWARM_MOCAP_HOST=192.168.9.152
+    hostname: "auto"
 
     topics:
       frame_id: "world" #mocap
