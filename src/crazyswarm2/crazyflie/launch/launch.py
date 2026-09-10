@@ -184,6 +184,12 @@ def parse_yaml(context):
             condition=IfCondition(PythonExpression(["'", LaunchConfiguration('backend'), "' != 'sim' and '", LaunchConfiguration('mocap'), "'.lower() in ('true', '1')"])),
             name='motion_capture_tracking',
             output='screen',
+            emulate_tty=True,   # line-buffer the parser's stdout so 'NatNet: ...' lines show live
+            # The vendored parser now aborts (instead of hanging) when Motive does not
+            # answer within 5 s; respawn so the error repeats loudly and the node
+            # recovers by itself once Motive / the network is back.
+            respawn=True,
+            respawn_delay=3.0,
             parameters= [motion_capture_params],
         ),
         Node(

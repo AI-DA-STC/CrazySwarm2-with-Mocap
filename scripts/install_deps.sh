@@ -42,8 +42,10 @@ sudo apt-get install -y \
   git cmake build-essential wget tar unzip \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   libusb-1.0-0-dev libboost-program-options-dev libboost-system-dev libeigen3-dev \
-  ros-"${ROS_DISTRO}"-tf-transformations \
   ros-"${ROS_DISTRO}"-joy ros-"${ROS_DISTRO}"-rviz2
+# NOTE: ros-<distro>-tf-transformations is deliberately NOT installed: nothing in
+# this repo imports it, and on 22.04 its transforms3d 0.3 breaks under the NumPy 2
+# that cflib requires (np.maximum_sctype removed). Use pip transforms3d>=0.4 if needed.
 
 # motion_capture_tracking is VENDORED in src/motion_capture_tracking (see its
 # VENDORED.md). The apt release 1.0.9 (Humble today, Jazzy soon) hard-codes a

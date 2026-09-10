@@ -1,0 +1,82 @@
+--- a/src/optitrack.cpp
++++ b/src/optitrack.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include <boost/asio.hpp>
+ #include <iostream>
++#include <poll.h>
+ 
+ using boost::asio::ip::udp;
+ 
+@@ -347,17 +348,49 @@
+       uint8_t MulticastGroupAddress[4];
+     } sResponse;
+ 
++    // Vendored change (CrazySwarm2-with-Mocap): upstream blocks forever here
++    // when Motive does not answer (stale hostname after a DHCP move, streaming
++    // off, Windows firewall). The node then sits alive with no /poses publisher
++    // and no socket on 1511, printing nothing — indistinguishable from "idle".
++    // Bound the wait and fail loudly so launch.py / respawn can surface it.
++    // NB: SO_RCVTIMEO does not work here — Boost.Asio's synchronous receive
++    // treats the resulting EAGAIN as "would block" and polls without a timeout,
++    // so we poll() the descriptor ourselves before each receive.
++    const int kCmdTimeoutSec = 5;
++    auto cmdReplyReady = [&socket_cmd, kCmdTimeoutSec]() {
++      struct pollfd pfd{socket_cmd.native_handle(), POLLIN, 0};
++      return ::poll(&pfd, 1, kCmdTimeoutSec * 1000) > 0;
++    };
++    std::cout << "NatNet: connecting to " << hostname << ":" << port_command
++              << " (" << kCmdTimeoutSec << " s timeout)" << std::endl;
++
+     sRequest connectCmd = {NAT_CONNECT, 0};
+     socket_cmd.send_to(boost::asio::buffer(&connectCmd, sizeof(connectCmd)), endpoint_cmd);
+ 
+     sResponse response;
+     udp::endpoint sender_endpoint;
++    if (!cmdReplyReady()) {
++      throw std::runtime_error(
++        "NatNet: no ServerInfo reply from " + hostname + ":" + std::to_string(port_command) +
++        " within " + std::to_string(kCmdTimeoutSec) + " s. "
++        "Check the Motive address (motion_capture.yaml hostname / mocap_hostname:=), that Motive is "
++        "running with streaming enabled, and the Windows firewall on the Motive PC.");
++    }
++
+     size_t reply_length = socket_cmd.receive_from(
+         boost::asio::buffer(&response, sizeof(response)), sender_endpoint);
+-
+     if (response.iMessage != NAT_SERVERINFO) {
+       throw std::runtime_error("Could not query NatNet version!");
+     }
++    std::cout << "NatNet: Motive '" << response.szName << "' NatNet "
++              << (int)response.NatNetVersion[0] << "." << (int)response.NatNetVersion[1]
++              << ", data port " << response.DataPort
++              << (response.IsMulticast ? ", multicast group " : ", unicast")
++              << (response.IsMulticast ? (std::to_string(response.MulticastGroupAddress[0]) + "." +
++                                          std::to_string(response.MulticastGroupAddress[1]) + "." +
++                                          std::to_string(response.MulticastGroupAddress[2]) + "." +
++                                          std::to_string(response.MulticastGroupAddress[3])) : std::string())
++              << std::endl;
+ 
+     std::ostringstream stringStream;
+     stringStream << (int)response.NatNetVersion[0] << "."
+@@ -376,10 +409,20 @@
+     sRequest modelDefCmd = {NAT_REQUEST_MODELDEF, 0};
+     socket_cmd.send_to(boost::asio::buffer(&modelDefCmd, sizeof(modelDefCmd)), endpoint_cmd);
+     std::vector<char> modelDef(MAX_PACKETSIZE);
++    if (!cmdReplyReady()) {
++      throw std::runtime_error(
++        "NatNet: no model definitions from " + hostname + " within " +
++        std::to_string(kCmdTimeoutSec) + " s.");
++    }
+     reply_length = socket_cmd.receive_from(
+         boost::asio::buffer(modelDef.data(), modelDef.size()), sender_endpoint);
+     modelDef.resize(reply_length);
+     pImpl->parseModelDef(modelDef.data());
++    {
++      std::ostringstream rb;
++      for (const auto& kv : pImpl->rigidBodyDefinitions) rb << " '" << kv.second.name << "'";
++      std::cout << "NatNet: " << pImpl->rigidBodyDefinitions.size() << " rigid bodies streamed:" << rb.str() << std::endl;
++    }
+ 
+     // connect to data port to receive mocap data
+     auto listen_address_boost = boost::asio::ip::make_address_v4(interface_ip);

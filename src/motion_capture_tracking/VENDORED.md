@@ -24,6 +24,19 @@ shadow this build.
 
 ## Local patches applied on top of upstream
 
+`patches/0005-libmotioncapture-natnet-connect-timeout-and-logging.patch` —
+upstream blocks forever in `connect()` when Motive does not answer on UDP 1510
+(stale address after a DHCP move, streaming off, Windows firewall): the node
+stays alive, prints nothing, never binds 1511, never creates `/poses`. The
+patch `poll()`s the command socket for 5 s before each reply (SO_RCVTIMEO does
+not work: Boost.Asio's sync receive retries on EAGAIN) and throws a
+`std::runtime_error` naming the address and the likely causes, and logs
+`NatNet: connecting to ...`, the Motive name / NatNet version / data port /
+transport, and the streamed rigid-body names after connect. Applies with:
+
+    git apply --directory=src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture \
+        src/motion_capture_tracking/patches/0005-libmotioncapture-natnet-connect-timeout-and-logging.patch
+
 `patches/0004-node-humble-compatible-tf-broadcaster.patch` — upstream commit
 `a17396d` ("fix build error on rolling") constructs the TF broadcaster through
 `rclcpp::node_interfaces::NodeInterfaces`. That API reached Humble only in
@@ -48,7 +61,7 @@ Applies with:
 
 ## Updating
 
-Re-clone upstream at a newer commit, re-apply both patches, verify
+Re-clone upstream at a newer commit, re-apply all three patches, verify
 `grep -r 141.23.110.162 motion_capture_tracking/deps/libmotioncapture/src`
 prints nothing, strip `.git` entries, rebuild on BOTH a 22.04/Humble and a
 24.04/Jazzy machine (a stock `ros:humble` Docker image is enough for the build
