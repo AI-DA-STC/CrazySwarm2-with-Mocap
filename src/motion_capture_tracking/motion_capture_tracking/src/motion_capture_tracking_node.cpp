@@ -6,7 +6,7 @@
 #include <rclcpp/rclcpp.hpp>
 // Vendored change (CrazySwarm2-with-Mocap): upstream a17396d switched the TF
 // broadcaster to rclcpp::node_interfaces::NodeInterfaces to fix a Rolling build.
-// That API reached Humble only in the 2025-12 backport (rclcpp >= 16.0.1x), so
+// That API reached Humble only in the 2025-12 backport (ros-humble-rclcpp >= 16.0.17; 16.0.14 verified failing), so
 // lab laptops with an older ros-humble-rclcpp fail with
 // "rclcpp/node_interfaces/node_interfaces.hpp: No such file". We target Humble
 // and Jazzy, not Rolling, so keep the classic constructor (works on both).

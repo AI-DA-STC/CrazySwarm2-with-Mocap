@@ -26,8 +26,9 @@ shadow this build.
 
 `patches/0004-node-humble-compatible-tf-broadcaster.patch` — upstream commit
 `a17396d` ("fix build error on rolling") constructs the TF broadcaster through
-`rclcpp::node_interfaces::NodeInterfaces`. That API reached Humble only in the
-2025-12 backport, so a 22.04 laptop whose `ros-humble-rclcpp` predates it
+`rclcpp::node_interfaces::NodeInterfaces`. That API reached Humble only in
+`ros-humble-rclcpp` 16.0.17 (2025-12 backport), so a 22.04 laptop with an older
+rclcpp (verified: 16.0.14 fails, patched build succeeds)
 fails with `rclcpp/node_interfaces/node_interfaces.hpp: No such file or
 directory`. We target Humble + Jazzy, not Rolling, so the vendored node keeps
 the classic `tf2_ros::TransformBroadcaster(node)` constructor. Applies with:
